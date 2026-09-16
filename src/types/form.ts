@@ -1,27 +1,33 @@
+import type { UploadedKtp } from './api'
+
+export type ExistingKtp = Omit<UploadedKtp, 'mimeType'> & {
+  kind: 'existing'
+  mimeType?: string
+}
+
+export type NewKtp = {
+  kind: 'new'
+  file: File
+  previous?: ExistingKtp
+}
+
+export type KtpState = ExistingKtp | NewKtp | null
+
 export type SupervisorEntry = {
+  supervisorId?: string
   namaSupervisor: string
-  ktp: File | null
+  ktp: KtpState
 }
 
 export type WilayahEntry = {
-  provinsiId: string
+  submissionAreaId?: string
   provinsiName: string
-  areaId: string
   areaName: string
-  areaAp: string
-  jumlahSupervisor: number
   supervisors: SupervisorEntry[]
 }
 
-export type ResolvedDistributor = {
-  kodeDistributor: string
-  namaDistributor: string
-}
-
 export type SupervisorFormValues = {
-  kodeDistributor: string
   namaDistributor: string
-  distributorTerverifikasi: ResolvedDistributor | null
   wilayah: WilayahEntry[]
 }
 
@@ -31,18 +37,30 @@ export const createEmptySupervisor = (): SupervisorEntry => ({
 })
 
 export const createEmptyWilayah = (): WilayahEntry => ({
-  provinsiId: '',
   provinsiName: '',
-  areaId: '',
   areaName: '',
-  areaAp: '',
-  jumlahSupervisor: 1,
   supervisors: [createEmptySupervisor()],
 })
 
 export const createDefaultFormValues = (): SupervisorFormValues => ({
-  kodeDistributor: '',
   namaDistributor: '',
-  distributorTerverifikasi: null,
   wilayah: [createEmptyWilayah()],
 })
+
+export function addSupervisor(
+  supervisors: readonly SupervisorEntry[],
+): SupervisorEntry[] {
+  return supervisors.length >= 10
+    ? [...supervisors]
+    : [...supervisors, createEmptySupervisor()]
+}
+
+export function removeSupervisor(
+  supervisors: readonly SupervisorEntry[],
+  index: number,
+): SupervisorEntry[] {
+  if (supervisors.length <= 1 || index < 0 || index >= supervisors.length) {
+    return [...supervisors]
+  }
+  return supervisors.filter((_, currentIndex) => currentIndex !== index)
+}

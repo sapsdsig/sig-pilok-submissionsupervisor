@@ -1,39 +1,38 @@
 import { describe, expect, it } from 'vitest'
-import { mockDistributors } from '../data/mockDistributors'
 import { mockProvinceAreaRows } from '../data/mockProvinceAreas'
 import { MockDistributorService } from './distributorService'
 import { MockRegionService } from './regionService'
 
-const distributorService = new MockDistributorService()
-const regionService = new MockRegionService(mockProvinceAreaRows)
+const distributors = new MockDistributorService()
+const regions = new MockRegionService(mockProvinceAreaRows)
 
-describe('distributorService', () => {
-  it('mempertahankan leading zero dan mencocokkan kode secara eksak', async () => {
-    await expect(distributorService.findByCode('0000000971')).resolves.toMatchObject({
-      kodeDistributor: '0000000971',
-    })
-    await expect(distributorService.findByCode('971')).resolves.toBeNull()
-    await expect(distributorService.findByCode(' 0000000971')).resolves.toBeNull()
-  })
-
-  it('menggunakan pasangan kode dan nama dari master mock', () => {
-    expect(distributorService.isKnownDistributor(mockDistributors[0]!)).toBe(true)
-  })
-})
-
-describe('regionService', () => {
-  it('menghasilkan provinsi unik dari baris master granular', async () => {
-    const provinces = await regionService.getProvinces()
-    expect(provinces.map((item) => item.provinsiId)).toEqual(['11', '12', '94'])
-  })
-
-  it('menghasilkan area unik dan hanya untuk provinsi terkait', async () => {
-    const acehAreas = await regionService.getAreasByProvince('11')
-    expect(acehAreas).toEqual([
-      { areaId: '502', areaName: 'Area 02', areaAp: 'SP' },
-      { areaId: '501', areaName: 'Area 01', areaAp: 'SP' },
+describe('Phase 4 master services', () => {
+  it('searches Distributor case-insensitively and returns canonical values', async () => {
+    await expect(distributors.getDistributors('cendrawasih')).resolves.toEqual([
+      { namaDistributor: 'CENDRAWASIH MULIA PERKASA, PT' },
     ])
-    expect(acehAreas.filter((item) => item.areaId === '502')).toHaveLength(1)
-    await expect(regionService.getAreasByProvince('94')).resolves.toHaveLength(2)
+  })
+
+  it('does not accept arbitrary Distributor text', () => {
+    expect(distributors.isKnownDistributor('BUKAN MASTER')).toBe(false)
+    expect(
+      distributors.isKnownDistributor('cendrawasih mulia perkasa, pt'),
+    ).toBe(true)
+  })
+
+  it('deduplicates Province names', async () => {
+    await expect(regions.getProvinces()).resolves.toEqual([
+      { provinsiName: 'ACEH' },
+      { provinsiName: 'SUMATERA UTARA' },
+      { provinsiName: 'PAPUA' },
+    ])
+  })
+
+  it('filters and deduplicates Area by Province name', async () => {
+    await expect(regions.getAreasByProvince('aceh')).resolves.toEqual([
+      { areaName: 'Area 02' },
+      { areaName: 'Area 01' },
+    ])
+    expect(regions.getArea('PAPUA', 'Area 02')).toBeUndefined()
   })
 })

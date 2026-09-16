@@ -1,19 +1,12 @@
-export const MASTER_DISTRIBUTOR_HEADERS = [
-  'Kode Distributor',
-  'Nama Distributor',
-] as const
+export const MASTER_DISTRIBUTOR_HEADERS = ['Nama Distributor'] as const
 
 export const PROVINCE_AREA_HEADERS = [
-  'Provinsi ID',
   'Provinsi Name',
-  'Area ID',
   'Area Name',
-  'Area AP',
 ] as const
 
 export const SUBMISSION_HEADERS = [
   'submission_id',
-  'kode_distributor',
   'nama_distributor',
   'created_at',
   'updated_at',
@@ -22,11 +15,8 @@ export const SUBMISSION_HEADERS = [
 export const SUBMISSION_AREA_HEADERS = [
   'submission_area_id',
   'submission_id',
-  'provinsi_id',
   'provinsi_name',
-  'area_id',
   'area_name',
-  'area_ap',
   'jumlah_supervisor',
 ] as const
 

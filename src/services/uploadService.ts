@@ -85,9 +85,9 @@ class GoogleDriveUploadService implements UploadService {
     const mimeType = resolveKtpMimeType(input.file)
     const sessionPayload: KtpUploadSessionRequest = {
       requestToken: input.requestToken,
-      kodeDistributor: input.kodeDistributor,
-      provinsiId: input.provinsiId,
-      areaId: input.areaId,
+      namaDistributor: input.namaDistributor,
+      provinsiName: input.provinsiName,
+      areaName: input.areaName,
       supervisorNo: input.supervisorNo,
       namaSupervisor: input.namaSupervisor,
       fileName: input.file.name,
@@ -118,9 +118,9 @@ class GoogleDriveUploadService implements UploadService {
       body: JSON.stringify({
         requestToken: input.requestToken,
         fileId: driveResponse.id,
-        kodeDistributor: input.kodeDistributor,
-        provinsiId: input.provinsiId,
-        areaId: input.areaId,
+        namaDistributor: input.namaDistributor,
+        provinsiName: input.provinsiName,
+        areaName: input.areaName,
         supervisorNo: input.supervisorNo,
       }),
     })

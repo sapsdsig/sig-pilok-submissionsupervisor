@@ -1,55 +1,49 @@
 import { mockDistributors } from '../data/mockDistributors'
 import type { Distributor } from '../types/masterData'
-import { ApiClientError, fetchJson } from './apiClient'
+import { fetchJson } from './apiClient'
+
+const normalize = (value: string) => value.trim().toLocaleUpperCase('id-ID')
 
 export interface DistributorService {
-  findByCode(code: string): Promise<Distributor | null>
-  isKnownDistributor(distributor: Distributor): boolean
+  getDistributors(query?: string): Promise<Distributor[]>
+  isKnownDistributor(namaDistributor: string): boolean
 }
 
 export class MockDistributorService implements DistributorService {
-  async findByCode(code: string): Promise<Distributor | null> {
-    const distributor = mockDistributors.find(
-      (item) => item.kodeDistributor === code,
-    )
-
-    return distributor ? { ...distributor } : null
+  async getDistributors(query = ''): Promise<Distributor[]> {
+    const key = normalize(query)
+    return mockDistributors
+      .filter((item) => normalize(item.namaDistributor).includes(key))
+      .map((item) => ({ ...item }))
   }
 
-  isKnownDistributor(distributor: Distributor): boolean {
+  isKnownDistributor(namaDistributor: string): boolean {
+    const key = normalize(namaDistributor)
     return mockDistributors.some(
-      (item) =>
-        item.kodeDistributor === distributor.kodeDistributor &&
-        item.namaDistributor === distributor.namaDistributor,
+      (item) => normalize(item.namaDistributor) === key,
     )
   }
 }
 
 export class ApiDistributorService implements DistributorService {
-  private readonly resolved = new Map<string, Distributor>()
+  private distributors: Distributor[] = []
 
-  async findByCode(code: string): Promise<Distributor | null> {
-    try {
-      const distributor = await fetchJson<Distributor>(
-        `/api/distributors/${encodeURIComponent(code)}`,
-      )
-      this.resolved.set(distributor.kodeDistributor, distributor)
-      return distributor
-    } catch (error) {
-      if (
-        error instanceof ApiClientError &&
-        error.code === 'DISTRIBUTOR_NOT_FOUND'
-      ) {
-        return null
-      }
-      throw error
-    }
+  async getDistributors(query = ''): Promise<Distributor[]> {
+    const suffix = query ? `?query=${encodeURIComponent(query)}` : ''
+    const distributors = await fetchJson<Distributor[]>(
+      `/api/distributors${suffix}`,
+    )
+    if (!query) this.distributors = distributors
+    return distributors
   }
 
-  isKnownDistributor(distributor: Distributor): boolean {
-    const known = this.resolved.get(distributor.kodeDistributor)
-    return known?.namaDistributor === distributor.namaDistributor
+  isKnownDistributor(namaDistributor: string): boolean {
+    const key = normalize(namaDistributor)
+    return this.distributors.some(
+      (item) => normalize(item.namaDistributor) === key,
+    )
   }
 }
 
-export const distributorService: DistributorService = new ApiDistributorService()
+export const distributorService: DistributorService =
+  new ApiDistributorService()

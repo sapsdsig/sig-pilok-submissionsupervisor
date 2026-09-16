@@ -8,8 +8,8 @@ import {
 describe('Drive KTP filename', () => {
   it('membersihkan nama dan menghasilkan nama yang readable serta collision-resistant', () => {
     const result = createStoredKtpFileName({
-      kodeDistributor: '0000000971',
-      areaId: '502',
+      namaDistributor: 'CENDRAWASIH MULIA PERKASA, PT',
+      areaName: 'Area 02',
       supervisorNo: 1,
       namaSupervisor: '../Budi Santóso',
       mimeType: 'application/pdf',
@@ -19,7 +19,7 @@ describe('Drive KTP filename', () => {
     })
 
     expect(result).toBe(
-      'KTP_0000000971_502_01_BUDI_SANTOSO_20260915T153000Z_123E4567.pdf',
+      'KTP_CENDRAWASIH_MULIA_PERKASA_PT_AREA_02_01_BUDI_SANTOSO_20260915T153000Z_123E4567.pdf',
     )
     expect(result).not.toContain('..')
   })

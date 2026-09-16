@@ -7,9 +7,9 @@ export type UploadedKtp = {
 
 export type KtpUploadContext = {
   requestToken: string
-  kodeDistributor: string
-  provinsiId: string
-  areaId: string
+  namaDistributor: string
+  provinsiName: string
+  areaName: string
   supervisorNo: number
 }
 
@@ -25,15 +25,26 @@ export type KtpUploadSessionResponse = {
   storedFileName: string
 }
 
+export type ExistingKtpReference = {
+  kind: 'existing'
+  fileId: string
+}
+
+export type NewUploadedKtp = UploadedKtp & {
+  kind: 'new'
+}
+
 export type SubmissionRequest = {
   requestToken: string
-  kodeDistributor: string
+  namaDistributor: string
   wilayah: Array<{
-    provinsiId: string
-    areaId: string
+    submissionAreaId?: string
+    provinsiName: string
+    areaName: string
     supervisors: Array<{
+      supervisorId?: string
       namaSupervisor: string
-      ktp: UploadedKtp
+      ktp: ExistingKtpReference | NewUploadedKtp
     }>
   }>
 }
@@ -41,5 +52,31 @@ export type SubmissionRequest = {
 export type SubmissionResult = {
   submissionId: string
   createdAt: string
-  duplicate: boolean
+  updatedAt: string
+  mode: 'create' | 'edit'
 }
+
+export type StoredSupervisor = {
+  supervisorId: string
+  namaSupervisor: string
+  ktp: Omit<UploadedKtp, 'mimeType'> & { mimeType?: string }
+}
+
+export type StoredWilayah = {
+  submissionAreaId: string
+  provinsiName: string
+  areaName: string
+  supervisors: StoredSupervisor[]
+}
+
+export type StoredSubmission = {
+  submissionId: string
+  namaDistributor: string
+  createdAt: string
+  updatedAt: string
+  wilayah: StoredWilayah[]
+}
+
+export type SubmissionLookupResponse =
+  | { exists: false }
+  | { exists: true; submission: StoredSubmission }

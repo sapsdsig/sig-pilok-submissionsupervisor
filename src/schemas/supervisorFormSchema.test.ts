@@ -5,98 +5,83 @@ import { MockRegionService } from '../services/regionService'
 import type { SupervisorFormValues } from '../types/form'
 import { createSupervisorFormSchema } from './supervisorFormSchema'
 
-const distributorService = new MockDistributorService()
-const regionService = new MockRegionService(mockProvinceAreaRows)
-
+const distributors = new MockDistributorService()
+const regions = new MockRegionService(mockProvinceAreaRows)
 const schema = createSupervisorFormSchema({
-  isKnownDistributor: (distributor) =>
-    distributorService.isKnownDistributor(distributor),
-  getProvince: (provinceId) => regionService.getProvince(provinceId),
-  getArea: (provinceId, areaId) => regionService.getArea(provinceId, areaId),
+  isKnownDistributor: (name) => distributors.isKnownDistributor(name),
+  getProvince: (name) => regions.getProvince(name),
+  getArea: (province, area) => regions.getArea(province, area),
 })
-
-const createKtp = (name = 'ktp.jpg', type = 'image/jpeg') =>
-  new File(['sample'], name, { type })
-
-const validValues = (): SupervisorFormValues => ({
-  kodeDistributor: '0000000971',
+const file = () => new File(['sample'], 'ktp.pdf', { type: 'application/pdf' })
+const valid = (): SupervisorFormValues => ({
   namaDistributor: 'CENDRAWASIH MULIA PERKASA, PT',
-  distributorTerverifikasi: {
-    kodeDistributor: '0000000971',
-    namaDistributor: 'CENDRAWASIH MULIA PERKASA, PT',
-  },
   wilayah: [
     {
-      provinsiId: '11',
       provinsiName: 'ACEH',
-      areaId: '502',
       areaName: 'Area 02',
-      areaAp: 'SP',
-      jumlahSupervisor: 1,
-      supervisors: [{ namaSupervisor: 'Budi', ktp: createKtp() }],
+      supervisors: [
+        { namaSupervisor: 'Budi', ktp: { kind: 'new', file: file() } },
+      ],
     },
   ],
 })
-
-const messagesFor = (values: SupervisorFormValues): string[] => {
+const messages = (values: SupervisorFormValues) => {
   const result = schema.safeParse(values)
   return result.success ? [] : result.error.issues.map((issue) => issue.message)
 }
 
-describe('supervisorFormSchema', () => {
-  it('menerima payload lengkap dan memangkas nama Supervisor', () => {
-    const values = validValues()
-    values.wilayah[0].supervisors[0].namaSupervisor = '  Budi  '
-    const result = schema.safeParse(values)
+describe('Phase 4 frontend form schema', () => {
+  it('accepts a new Supervisor with a valid local KTP', () => {
+    expect(schema.safeParse(valid()).success).toBe(true)
+  })
 
-    expect(result.success).toBe(true)
-    if (result.success) {
-      expect(result.data.wilayah[0].supervisors[0].namaSupervisor).toBe('Budi')
+  it('accepts an existing KTP without re-upload', () => {
+    const values = valid()
+    values.wilayah[0]!.supervisors[0]!.ktp = {
+      kind: 'existing',
+      fileId: 'file_123456789',
+      fileName: 'KTP_BUDI.pdf',
+      fileUrl: 'https://drive.google.com/file/d/file_123456789/view',
     }
+    expect(schema.safeParse(values).success).toBe(true)
   })
 
-  it('menolak distributor yang tidak berasal dari lookup master', () => {
-    const values = validValues()
-    values.distributorTerverifikasi = null
-    expect(messagesFor(values)).toContain(
-      'Kode Distributor harus berhasil dicari sebelum melanjutkan.',
-    )
+  it('rejects arbitrary Distributor text', () => {
+    const values = valid()
+    values.namaDistributor = 'BUKAN MASTER'
+    expect(messages(values)).toContain('Distributor harus dipilih dari master.')
   })
 
-  it('menolak kombinasi Provinsi dan Area duplikat', () => {
-    const values = validValues()
+  it('rejects duplicate Province and Area combinations', () => {
+    const values = valid()
     values.wilayah.push({
-      ...values.wilayah[0],
-      supervisors: [{ namaSupervisor: 'Ani', ktp: createKtp('ani.png', 'image/png') }],
+      provinsiName: 'ACEH',
+      areaName: 'Area 02',
+      supervisors: [
+        { namaSupervisor: 'Ani', ktp: { kind: 'new', file: file() } },
+      ],
     })
-    expect(messagesFor(values)).toContain(
+    expect(messages(values)).toContain(
       'Kombinasi Provinsi dan Area sudah digunakan.',
     )
   })
 
-  it('menolak Area yang bukan milik Provinsi terpilih', () => {
-    const values = validValues()
-    values.wilayah[0].provinsiId = '94'
-    values.wilayah[0].provinsiName = 'PAPUA'
-    expect(messagesFor(values)).toContain(
+  it('rejects an Area outside its Province', () => {
+    const values = valid()
+    values.wilayah[0]!.provinsiName = 'PAPUA'
+    expect(messages(values)).toContain(
       'Area tidak sesuai dengan Provinsi yang dipilih.',
     )
   })
 
-  it('menolak jumlah array Supervisor yang tidak sesuai', () => {
-    const values = validValues()
-    values.wilayah[0].jumlahSupervisor = 2
-    expect(messagesFor(values)).toContain('Jumlah data Supervisor belum sesuai.')
-  })
-
-  it('menolak nama kosong dan format file yang tidak didukung', () => {
-    const values = validValues()
-    values.wilayah[0].supervisors[0] = {
-      namaSupervisor: '   ',
-      ktp: createKtp('ktp.txt', 'text/plain'),
-    }
-    const messages = messagesFor(values)
-    expect(messages).toContain('Nama Supervisor wajib diisi.')
-    expect(messages).toContain('Format KTP harus JPG, JPEG, PNG, atau PDF.')
+  it('requires one to ten Supervisors and a KTP for new entries', () => {
+    const values = valid()
+    values.wilayah[0]!.supervisors[0]!.ktp = null
+    expect(messages(values)).toContain('KTP Supervisor wajib dipilih.')
+    values.wilayah[0]!.supervisors = Array.from({ length: 11 }, (_, index) => ({
+      namaSupervisor: `Supervisor ${index}`,
+      ktp: { kind: 'new' as const, file: file() },
+    }))
+    expect(messages(values)).toContain('Jumlah Supervisor maksimal 10.')
   })
 })

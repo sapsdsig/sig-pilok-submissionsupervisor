@@ -12,16 +12,26 @@ import { distributorService } from './services/distributorService'
 import { regionService } from './services/regionService'
 import { submissionService } from './services/submissionService'
 import { uploadService } from './services/uploadService'
-import type { SubmissionRequest, SubmissionResult } from './types/api'
+import type {
+  StoredSubmission,
+  SubmissionRequest,
+  SubmissionResult,
+} from './types/api'
 import {
   createDefaultFormValues,
   createEmptyWilayah,
   type SupervisorFormValues,
   type WilayahEntry,
 } from './types/form'
-import type { ProvinceOption } from './types/masterData'
+import type { Distributor, ProvinceOption } from './types/masterData'
 import { normalizeSubmission } from './utils/submission'
 import { createRequestToken } from './utils/requestToken'
+
+type FormMode =
+  | { kind: 'create' }
+  | { kind: 'edit'; submissionId: string }
+
+type LookupStatus = 'idle' | 'loading' | 'create' | 'edit' | 'error'
 
 type ProcessingStatus =
   | {
@@ -33,22 +43,41 @@ type ProcessingStatus =
     }
   | { stage: 'persistence' }
 
-const isWilayahPopulated = (wilayah: WilayahEntry): boolean =>
-  Boolean(wilayah.provinsiId || wilayah.areaId) ||
-  wilayah.supervisors.some(
-    (supervisor) =>
-      supervisor.namaSupervisor.trim().length > 0 || supervisor.ktp !== null,
+const isWilayahPopulated = (wilayah: WilayahEntry) =>
+  Boolean(
+    wilayah.submissionAreaId ||
+      wilayah.provinsiName ||
+      wilayah.areaName ||
+      wilayah.supervisors.some(
+        (supervisor) =>
+          supervisor.supervisorId ||
+          supervisor.namaSupervisor.trim() ||
+          supervisor.ktp,
+      ),
   )
+
+const storedToForm = (stored: StoredSubmission): SupervisorFormValues => ({
+  namaDistributor: stored.namaDistributor,
+  wilayah: stored.wilayah.map((area) => ({
+    submissionAreaId: area.submissionAreaId,
+    provinsiName: area.provinsiName,
+    areaName: area.areaName,
+    supervisors: area.supervisors.map((supervisor) => ({
+      supervisorId: supervisor.supervisorId,
+      namaSupervisor: supervisor.namaSupervisor,
+      ktp: { kind: 'existing' as const, ...supervisor.ktp },
+    })),
+  })),
+})
 
 function App() {
   const schema = useMemo(
     () =>
       createSupervisorFormSchema({
-        isKnownDistributor: (distributor) =>
-          distributorService.isKnownDistributor(distributor),
-        getProvince: (provinceId) => regionService.getProvince(provinceId),
-        getArea: (provinceId, areaId) =>
-          regionService.getArea(provinceId, areaId),
+        isKnownDistributor: (name) =>
+          distributorService.isKnownDistributor(name),
+        getProvince: (name) => regionService.getProvince(name),
+        getArea: (province, area) => regionService.getArea(province, area),
       }),
     [],
   )
@@ -57,7 +86,6 @@ function App() {
     defaultValues: createDefaultFormValues(),
     mode: 'onBlur',
     reValidateMode: 'onChange',
-    shouldFocusError: true,
   })
   const {
     control,
@@ -65,147 +93,155 @@ function App() {
     handleSubmit,
     reset,
     setError,
-    setValue,
-    clearErrors,
-    watch,
-    formState: { errors, isSubmitting },
+    formState: { errors, isDirty, isSubmitting },
   } = methods
-  const { fields, append, remove } = useFieldArray({ control, name: 'wilayah' })
+  const wilayahArray = useFieldArray({ control, name: 'wilayah' })
+  const [distributors, setDistributors] = useState<Distributor[]>([])
   const [provinces, setProvinces] = useState<ProvinceOption[]>([])
-  const [isLoadingProvinces, setIsLoadingProvinces] = useState(true)
-  const [provinceLoadError, setProvinceLoadError] = useState<string>()
-  const [isSearching, setIsSearching] = useState(false)
+  const [masterError, setMasterError] = useState<string>()
+  const [loadingMaster, setLoadingMaster] = useState(true)
+  const [lookupStatus, setLookupStatus] = useState<LookupStatus>('idle')
+  const [mode, setMode] = useState<FormMode>()
+  const [pendingDistributor, setPendingDistributor] = useState<string>()
+  const [pendingWilayah, setPendingWilayah] = useState<number | null>(null)
   const [submissionError, setSubmissionError] = useState<string>()
   const [successResult, setSuccessResult] = useState<SubmissionResult>()
+  const [editSuccess, setEditSuccess] = useState<SubmissionResult>()
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>()
-  const [pendingWilayahRemoval, setPendingWilayahRemoval] = useState<number | null>(null)
   const processingRef = useRef(false)
-  const resolvedDistributor = watch('distributorTerverifikasi')
-  const code = watch('kodeDistributor')
-  const isResolved =
-    resolvedDistributor !== null && resolvedDistributor.kodeDistributor === code
 
-  const loadProvinces = useCallback(async () => {
-    setIsLoadingProvinces(true)
-    setProvinceLoadError(undefined)
+  const loadMasters = useCallback(async () => {
+    setLoadingMaster(true)
+    setMasterError(undefined)
     try {
-      setProvinces(await regionService.getProvinces())
+      const [loadedDistributors, loadedProvinces] = await Promise.all([
+        distributorService.getDistributors(),
+        regionService.getProvinces(),
+      ])
+      setDistributors(loadedDistributors)
+      setProvinces(loadedProvinces)
     } catch (error) {
+      setDistributors([])
       setProvinces([])
-      setProvinceLoadError(
+      setMasterError(
         error instanceof ApiClientError
           ? error.message
-          : 'Master Provinsi gagal dimuat. Silakan coba kembali.',
+          : 'Master data gagal dimuat. Silakan coba kembali.',
       )
     } finally {
-      setIsLoadingProvinces(false)
+      setLoadingMaster(false)
     }
   }, [])
 
   useEffect(() => {
-    void loadProvinces()
-  }, [loadProvinces])
+    void loadMasters()
+  }, [loadMasters])
 
-  const handleCodeChanged = () => {
-    if (getValues('distributorTerverifikasi') !== null) {
-      setValue('namaDistributor', '', { shouldDirty: true })
-      setValue('distributorTerverifikasi', null, { shouldDirty: true })
-    }
-    clearErrors('kodeDistributor')
-    setSubmissionError(undefined)
-  }
-
-  const handleDistributorLookup = async () => {
-    const lookupCode = getValues('kodeDistributor')
-    setSubmissionError(undefined)
-
-    if (!lookupCode) {
-      setError('kodeDistributor', {
-        type: 'manual',
-        message: 'Kode Distributor wajib diisi.',
+  const loadDistributorSubmission = useCallback(
+    async (namaDistributor: string) => {
+      setLookupStatus('loading')
+      setMode(undefined)
+      setSubmissionError(undefined)
+      setEditSuccess(undefined)
+      reset({
+        ...createDefaultFormValues(),
+        namaDistributor,
       })
-      return
-    }
-
-    setIsSearching(true)
-    try {
-      const distributor = await distributorService.findByCode(lookupCode)
-      if (getValues('kodeDistributor') !== lookupCode) return
-
-      if (!distributor) {
-        setValue('namaDistributor', '', { shouldDirty: true })
-        setValue('distributorTerverifikasi', null, { shouldDirty: true })
-        setError('kodeDistributor', {
+      try {
+        const result =
+          await submissionService.findByDistributor(namaDistributor)
+        if (getValues('namaDistributor') !== namaDistributor) return
+        if (result.exists) {
+          reset(storedToForm(result.submission))
+          setMode({
+            kind: 'edit',
+            submissionId: result.submission.submissionId,
+          })
+          setLookupStatus('edit')
+        } else {
+          reset({
+            ...createDefaultFormValues(),
+            namaDistributor,
+          })
+          setMode({ kind: 'create' })
+          setLookupStatus('create')
+        }
+      } catch (error) {
+        if (getValues('namaDistributor') !== namaDistributor) return
+        setMode(undefined)
+        setLookupStatus('error')
+        setError('namaDistributor', {
           type: 'manual',
           message:
-            'Kode Distributor tidak ditemukan. Periksa kembali kode yang dimasukkan.',
+            error instanceof ApiClientError
+              ? error.message
+              : 'Pemeriksaan data tersimpan gagal. Coba kembali.',
         })
-        return
       }
+    },
+    [getValues, reset, setError],
+  )
 
-      setValue('namaDistributor', distributor.namaDistributor, {
-        shouldDirty: true,
-        shouldValidate: true,
-      })
-      setValue('distributorTerverifikasi', distributor, {
-        shouldDirty: true,
-        shouldValidate: true,
-      })
-      clearErrors('kodeDistributor')
-    } catch (error) {
-      if (getValues('kodeDistributor') !== lookupCode) return
-      setError('kodeDistributor', {
-        type: 'manual',
-        message:
-          error instanceof ApiClientError
-            ? error.message
-            : 'Pencarian distributor gagal. Silakan coba kembali.',
-      })
-    } finally {
-      setIsSearching(false)
+  const selectDistributor = (name: string) => {
+    if (!name || name === getValues('namaDistributor')) return
+    if (getValues('namaDistributor') && isDirty && mode) {
+      setPendingDistributor(name)
+      return
     }
+    void loadDistributorSubmission(name)
   }
 
   const requestWilayahRemoval = (index: number) => {
-    if (fields.length <= 1) return
-    const wilayah = getValues(`wilayah.${index}`)
-    if (isWilayahPopulated(wilayah)) {
-      setPendingWilayahRemoval(index)
+    if (wilayahArray.fields.length <= 1) return
+    if (isWilayahPopulated(getValues(`wilayah.${index}`))) {
+      setPendingWilayah(index)
     } else {
-      remove(index)
+      wilayahArray.remove(index)
     }
   }
 
   const onSubmit = async (values: SupervisorFormValues) => {
-    if (processingRef.current) return
+    if (processingRef.current || !mode) return
     processingRef.current = true
     setSubmissionError(undefined)
-
+    setEditSuccess(undefined)
     const requestToken = createRequestToken()
     const uploadedFileIds: string[] = []
+    let persistenceSucceeded = false
     try {
       const normalized = normalizeSubmission(values)
       const wilayah: SubmissionRequest['wilayah'] = []
-
       for (const [areaIndex, area] of normalized.wilayah.entries()) {
         const supervisors: SubmissionRequest['wilayah'][number]['supervisors'] = []
         for (const supervisor of area.supervisors) {
+          if (!supervisor.ktp) throw new Error('Missing validated KTP')
+          if (supervisor.ktp.kind === 'existing') {
+            supervisors.push({
+              supervisorId: supervisor.supervisorId,
+              namaSupervisor: supervisor.namaSupervisor,
+              ktp: {
+                kind: 'existing',
+                fileId: supervisor.ktp.fileId,
+              },
+            })
+            continue
+          }
           setProcessingStatus({
             stage: 'upload',
             wilayahNo: areaIndex + 1,
             supervisorNo: supervisor.supervisorNo,
-            fileName: supervisor.ktp.name,
+            fileName: supervisor.ktp.file.name,
             progress: 0,
           })
-          const ktp = await uploadService.uploadKtp(
+          const uploaded = await uploadService.uploadKtp(
             {
               requestToken,
-              kodeDistributor: normalized.kodeDistributor,
-              provinsiId: area.provinsiId,
-              areaId: area.areaId,
+              namaDistributor: normalized.namaDistributor,
+              provinsiName: area.provinsiName,
+              areaName: area.areaName,
               supervisorNo: supervisor.supervisorNo,
               namaSupervisor: supervisor.namaSupervisor,
-              file: supervisor.ktp,
+              file: supervisor.ktp.file,
             },
             (progress) =>
               setProcessingStatus((current) =>
@@ -216,42 +252,64 @@ function App() {
             (fileId) => uploadedFileIds.push(fileId),
           )
           supervisors.push({
+            supervisorId: supervisor.supervisorId,
             namaSupervisor: supervisor.namaSupervisor,
-            ktp,
+            ktp: { kind: 'new', ...uploaded },
           })
         }
         wilayah.push({
-          provinsiId: area.provinsiId,
-          areaId: area.areaId,
+          submissionAreaId: area.submissionAreaId,
+          provinsiName: area.provinsiName,
+          areaName: area.areaName,
           supervisors,
         })
       }
 
-      setProcessingStatus({ stage: 'persistence' })
-      const result = await submissionService.submit({
+      const payload: SubmissionRequest = {
         requestToken,
-        kodeDistributor: normalized.kodeDistributor,
+        namaDistributor: normalized.namaDistributor,
         wilayah,
-      })
-      setSuccessResult(result)
+      }
+      setProcessingStatus({ stage: 'persistence' })
+      const result =
+        mode.kind === 'edit'
+          ? await submissionService.update(mode.submissionId, payload)
+          : await submissionService.create(payload)
+      persistenceSucceeded = true
+
+      if (mode.kind === 'edit') {
+        const refreshed = await submissionService.findByDistributor(
+          normalized.namaDistributor,
+        )
+        if (!refreshed.exists) {
+          throw new Error('Saved submission could not be reloaded')
+        }
+        reset(storedToForm(refreshed.submission))
+        setMode({
+          kind: 'edit',
+          submissionId: refreshed.submission.submissionId,
+        })
+        setLookupStatus('edit')
+        setEditSuccess(result)
+      } else {
+        setSuccessResult(result)
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (error) {
-      try {
-        await uploadService.cleanup(requestToken, uploadedFileIds)
-      } catch (cleanupError) {
-        if (import.meta.env.DEV) {
-          console.error('Best-effort cleanup request failed', {
-            errorName:
-              cleanupError instanceof Error ? cleanupError.name : 'UnknownError',
-          })
+      if (!persistenceSucceeded) {
+        try {
+          await uploadService.cleanup(requestToken, uploadedFileIds)
+        } catch {
+          // Server-side reference checks make this best effort and safe.
         }
       }
       setSubmissionError(
-        error instanceof ApiClientError
-          ? error.message
-          : 'Submission gagal diproses. Data belum tersimpan; silakan coba kembali.',
+        persistenceSucceeded
+          ? 'Data berhasil disimpan, tetapi tampilan gagal dimuat ulang. Muat ulang halaman.'
+          : error instanceof ApiClientError
+            ? error.message
+            : 'Data gagal diproses. Submission sebelumnya tetap aman.',
       )
-      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
     } finally {
       processingRef.current = false
       setProcessingStatus(undefined)
@@ -260,140 +318,97 @@ function App() {
 
   const startNewForm = () => {
     reset(createDefaultFormValues())
+    setMode(undefined)
+    setLookupStatus('idle')
     setSuccessResult(undefined)
+    setEditSuccess(undefined)
     setSubmissionError(undefined)
-    setProcessingStatus(undefined)
-    setPendingWilayahRemoval(null)
   }
 
+  const ready = mode !== undefined && lookupStatus !== 'loading'
+
   return (
-    <div className="min-h-screen bg-slate-100">
-      <header className="border-b border-sky-900/20 bg-gradient-to-r from-[#0d416d] to-[#12689b] text-white shadow-sm">
-        <div className="mx-auto max-w-6xl px-4 py-7 sm:px-6 sm:py-9 lg:px-8">
-          <div className="flex items-center gap-4">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-white/15 text-lg font-black tracking-tight ring-1 ring-white/25">
-              P
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-sky-200">PILOK</p>
-              <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Form Data Supervisor</h1>
-            </div>
-          </div>
-          <p className="mt-4 max-w-2xl text-sm leading-6 text-sky-100 sm:text-base">
-            Lengkapi data wilayah operasional dan Supervisor untuk distributor yang terdaftar.
+    <div className='min-h-screen bg-slate-100'>
+      <header className='border-b border-sky-900/20 bg-gradient-to-r from-[#0d416d] to-[#12689b] text-white shadow-sm'>
+        <div className='mx-auto max-w-6xl px-4 py-7 sm:px-6'>
+          <p className='text-xs font-bold uppercase tracking-widest text-sky-200'>PILOK</p>
+          <h1 className='mt-1 text-2xl font-bold sm:text-3xl'>Form Data Supervisor</h1>
+          <p className='mt-3 text-sm text-sky-100'>
+            Kelola wilayah operasional dan Supervisor untuk Distributor terdaftar.
           </p>
         </div>
       </header>
-
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <main className='mx-auto max-w-6xl px-4 py-6 sm:px-6'>
         {successResult ? (
-          <section className="mx-auto max-w-2xl rounded-2xl border border-emerald-200 bg-white p-7 text-center shadow-sm sm:p-10" role="status">
-            <span className="mx-auto flex size-14 items-center justify-center rounded-full bg-emerald-600 text-white">
-              <CheckIcon className="size-7" />
-            </span>
-            <h2 className="mt-5 text-2xl font-bold text-slate-900">Data Supervisor berhasil disimpan.</h2>
-            <p className="mt-2 text-sm text-slate-600">Simpan Submission ID berikut sebagai referensi.</p>
-            <p className="mx-auto mt-5 max-w-md rounded-xl bg-slate-100 px-4 py-3 font-mono text-sm font-bold text-slate-800">
-              {successResult.submissionId}
-            </p>
-            <button type="button" className="button-primary mt-7" onClick={startNewForm}>
+          <section className='mx-auto max-w-2xl rounded-2xl bg-white p-8 text-center shadow-sm'>
+            <CheckIcon className='mx-auto size-12 text-emerald-600' />
+            <h2 className='mt-4 text-2xl font-bold'>Data Supervisor berhasil disimpan.</h2>
+            <p className='mt-3 font-mono'>{successResult.submissionId}</p>
+            <button type='button' className='button-primary mt-6' onClick={startNewForm}>
               Isi Form Baru
             </button>
           </section>
         ) : (
           <FormProvider {...methods}>
-            <form className="space-y-6" noValidate onSubmit={handleSubmit(onSubmit)}>
+            <form className='space-y-6' noValidate onSubmit={handleSubmit(onSubmit)}>
               <DistributorSection
-                isSearching={isSearching}
-                isResolved={isResolved}
-                onLookup={handleDistributorLookup}
-                onCodeChanged={handleCodeChanged}
+                distributors={distributors}
+                isLoading={loadingMaster}
+                loadError={masterError}
+                lookupStatus={lookupStatus}
+                onSelect={selectDistributor}
+                onRetry={() => void loadMasters()}
               />
 
-              {isResolved && (
-                <section className="form-section" aria-labelledby="wilayah-heading">
-                  <div className="section-heading">
-                    <span className="step-badge">2</span>
-                    <div>
-                      <h2 id="wilayah-heading">Wilayah Operasional</h2>
-                      <p>Setiap kartu mewakili satu kombinasi Provinsi dan Area.</p>
-                    </div>
+              {editSuccess && (
+                <div className='rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800' role='status'>
+                  Perubahan data Supervisor berhasil disimpan. Submission ID: {editSuccess.submissionId}
+                </div>
+              )}
+
+              {ready && (
+                <section className='form-section'>
+                  <div className='section-heading'>
+                    <span className='step-badge'>2</span>
+                    <div><h2>Wilayah Operasional</h2><p>Setiap kartu mewakili satu Provinsi dan Area.</p></div>
                   </div>
-
-                  {provinceLoadError && (
-                    <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">
-                      <p>{provinceLoadError}</p>
-                      <button type="button" className="mt-2 font-bold underline" onClick={() => void loadProvinces()}>
-                        Coba muat kembali
-                      </button>
-                    </div>
-                  )}
-                  {isLoadingProvinces && (
-                    <p className="mt-5 text-sm text-slate-500" role="status">Memuat master Provinsi...</p>
-                  )}
-
-                  <div className="mt-6 space-y-5">
-                    {fields.map((field, index) => (
+                  <div className='mt-6 space-y-5'>
+                    {wilayahArray.fields.map((field, index) => (
                       <WilayahCard
-                        key={`${field.id}-${index}`}
+                        key={field.id}
                         index={index}
                         provinces={provinces}
                         regionService={regionService}
-                        canRemove={fields.length > 1}
+                        canRemove={wilayahArray.fields.length > 1}
                         onRemove={() => requestWilayahRemoval(index)}
                       />
                     ))}
                   </div>
-
-                  <FieldError
-                    message={typeof errors.wilayah?.message === 'string' ? errors.wilayah.message : undefined}
-                  />
-
-                  <button
-                    type="button"
-                    className="button-secondary mt-5 w-full border-dashed sm:w-auto"
-                    onClick={() => {
-                      append(createEmptyWilayah())
-                      setSubmissionError(undefined)
-                    }}
-                  >
-                    <span className="text-xl leading-none" aria-hidden="true">+</span>
-                    Tambah Wilayah
+                  <FieldError message={typeof errors.wilayah?.message === 'string' ? errors.wilayah.message : undefined} />
+                  <button type='button' className='button-secondary mt-5' onClick={() => wilayahArray.append(createEmptyWilayah())}>
+                    + Tambah Wilayah
                   </button>
                 </section>
               )}
 
-              {isResolved && (
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-                  {submissionError && (
-                    <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700" role="alert">
-                      {submissionError}
-                    </div>
-                  )}
-                  {processingStatus && (
-                    <div className="mb-5 rounded-xl border border-sky-200 bg-sky-50 p-4" role="status">
-                      {processingStatus.stage === 'upload' ? (
-                        <>
-                          <p className="text-sm font-semibold text-sky-900">
-                            Mengunggah KTP Supervisor {processingStatus.supervisorNo} · Wilayah {processingStatus.wilayahNo}
-                          </p>
-                          <p className="mt-1 truncate text-xs text-sky-700">{processingStatus.fileName}</p>
-                          <div className="mt-3 h-2 overflow-hidden rounded-full bg-sky-200">
-                            <div className="h-full rounded-full bg-sky-700 transition-[width]" style={{ width: `${processingStatus.progress}%` }} />
-                          </div>
-                          <p className="mt-1 text-right text-xs font-bold text-sky-800">{processingStatus.progress}%</p>
-                        </>
-                      ) : (
-                        <p className="text-sm font-semibold text-sky-900">Menyimpan submission ke Google Sheets...</p>
-                      )}
-                    </div>
-                  )}
-                  <div className="flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-center">
-                    <p className="text-sm leading-6 text-slate-600">
-                      KTP diunggah langsung ke Google Drive, lalu data disimpan setelah seluruh upload berhasil.
+              {ready && (
+                <div className='rounded-2xl border border-slate-200 bg-white p-5 shadow-sm'>
+                  {submissionError && <div className='mb-4 text-sm text-red-700' role='alert'>{submissionError}</div>}
+                  {processingStatus?.stage === 'upload' && (
+                    <p className='mb-4 text-sm text-sky-800' role='status'>
+                      Mengunggah KTP Supervisor {processingStatus.supervisorNo}, Wilayah {processingStatus.wilayahNo}: {processingStatus.progress}%
                     </p>
-                    <button type="submit" className="button-primary min-w-40" disabled={isSubmitting || Boolean(processingStatus)}>
-                      {isSubmitting ? 'Memproses...' : 'Submit Data'}
+                  )}
+                  {processingStatus?.stage === 'persistence' && (
+                    <p className='mb-4 text-sm text-sky-800' role='status'>Menyimpan data ke Google Sheets...</p>
+                  )}
+                  <div className='flex justify-end'>
+                    <button type='submit' className='button-primary' disabled={isSubmitting || Boolean(processingStatus)}>
+                      {isSubmitting
+                        ? 'Memproses...'
+                        : mode.kind === 'edit'
+                          ? 'Simpan Perubahan'
+                          : 'Simpan Data'}
                     </button>
                   </div>
                 </div>
@@ -403,18 +418,26 @@ function App() {
         )}
       </main>
 
-      <footer className="mx-auto max-w-6xl px-4 pb-8 text-center text-xs text-slate-500 sm:px-6 lg:px-8">
-        PILOK Supervisor Form · Phase 2
-      </footer>
-
       <ConfirmationDialog
-        open={pendingWilayahRemoval !== null}
-        title="Hapus Wilayah?"
-        description={`Wilayah ${pendingWilayahRemoval === null ? '' : pendingWilayahRemoval + 1} berisi data. Seluruh pilihan wilayah, nama Supervisor, dan file KTP di dalamnya akan dihapus.`}
-        onCancel={() => setPendingWilayahRemoval(null)}
+        open={pendingWilayah !== null}
+        title='Hapus Wilayah?'
+        description='Wilayah dan seluruh Supervisor akan dihapus setelah perubahan berhasil disimpan.'
+        onCancel={() => setPendingWilayah(null)}
         onConfirm={() => {
-          if (pendingWilayahRemoval !== null) remove(pendingWilayahRemoval)
-          setPendingWilayahRemoval(null)
+          if (pendingWilayah !== null) wilayahArray.remove(pendingWilayah)
+          setPendingWilayah(null)
+        }}
+      />
+      <ConfirmationDialog
+        open={Boolean(pendingDistributor)}
+        title='Ganti Distributor?'
+        description='Perubahan yang belum disimpan akan dibuang sebelum data Distributor lain dimuat.'
+        confirmLabel='Ganti Distributor'
+        onCancel={() => setPendingDistributor(undefined)}
+        onConfirm={() => {
+          const next = pendingDistributor
+          setPendingDistributor(undefined)
+          if (next) void loadDistributorSubmission(next)
         }}
       />
     </div>

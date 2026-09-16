@@ -1,59 +1,128 @@
 import { describe, expect, it } from 'vitest'
-import { buildTransactionRecords } from './transactions.js'
+import type { StoredSubmission } from '../../src/types/api.js'
 import type { ValidatedSubmission } from './submissionValidation.js'
+import {
+  buildTransactionRecords,
+  deriveOldFileIdsToCleanup,
+} from './transactions.js'
 
-describe('transaction row generation', () => {
-  it('membentuk parent, area, dan supervisor rows dari data kanonik', () => {
-    const input: ValidatedSubmission = {
-      requestToken: '20260915_123e4567-e89b-42d3-a456-426614174000',
-      distributor: {
-        kodeDistributor: '0000000971',
-        namaDistributor: 'NAMA DISTRIBUTOR KANONIK',
-      },
-      wilayah: [
+const input = (): ValidatedSubmission => ({
+  requestToken: '20260915_123e4567-e89b-42d3-a456-426614174000',
+  distributor: { namaDistributor: 'DISTRIBUTOR KANONIK' },
+  wilayah: [
+    {
+      submissionAreaId: 'AREA-OLD',
+      province: { provinsiName: 'ACEH' },
+      area: { areaName: 'Area 02' },
+      supervisors: [
         {
-          province: { provinsiId: '11', provinsiName: 'ACEH' },
-          area: { areaId: '502', areaName: 'Area 02', areaAp: 'SP' },
-          supervisors: [
-            {
-              namaSupervisor: 'Budi',
-              ktp: {
-                fileId: 'file_123456789',
-                fileName: 'KTP_BUDI.pdf',
-                mimeType: 'application/pdf',
-                fileUrl: 'https://drive.google.com/file/d/file_123456789/view',
-              },
-            },
-            {
-              namaSupervisor: 'Ani',
-              ktp: {
-                fileId: 'file_987654321',
-                fileName: 'KTP_ANI.png',
-                mimeType: 'image/png',
-                fileUrl: 'https://drive.google.com/file/d/file_987654321/view',
-              },
-            },
-          ],
+          supervisorId: 'SPV-OLD',
+          namaSupervisor: 'Budi',
+          ktpSource: 'existing',
+          ktp: {
+            fileId: 'file_old_12345',
+            fileName: 'KTP_OLD.pdf',
+            mimeType: 'application/pdf',
+            fileUrl: 'https://drive.google.com/file/d/file_old_12345/view',
+          },
+        },
+        {
+          namaSupervisor: 'Ani',
+          ktpSource: 'new',
+          ktp: {
+            fileId: 'file_new_12345',
+            fileName: 'KTP_NEW.png',
+            mimeType: 'image/png',
+            fileUrl: 'https://drive.google.com/file/d/file_new_12345/view',
+          },
         },
       ],
-    }
-    const result = buildTransactionRecords(
-      input,
-      new Date('2026-09-15T15:30:00.000Z'),
-    )
+    },
+  ],
+})
+const stored: StoredSubmission = {
+  submissionId: 'SUP-EXISTING',
+  namaDistributor: 'DISTRIBUTOR KANONIK',
+  createdAt: '2026-09-01T00:00:00.000Z',
+  updatedAt: '2026-09-02T00:00:00.000Z',
+  wilayah: [
+    {
+      submissionAreaId: 'AREA-OLD',
+      provinsiName: 'ACEH',
+      areaName: 'Area 02',
+      supervisors: [
+        {
+          supervisorId: 'SPV-OLD',
+          namaSupervisor: 'Budi',
+          ktp: {
+            fileId: 'file_old_12345',
+            fileName: 'KTP_OLD.pdf',
+            fileUrl: 'https://drive.google.com/file/d/file_old_12345/view',
+          },
+        },
+        {
+          supervisorId: 'SPV-DELETED',
+          namaSupervisor: 'Deleted',
+          ktp: {
+            fileId: 'file_deleted_12345',
+            fileName: 'KTP_DELETED.pdf',
+            fileUrl: 'https://drive.google.com/file/d/file_deleted_12345/view',
+          },
+        },
+      ],
+    },
+  ],
+}
 
-    expect(result.submission.submission_id).toBe(result.submissionId)
-    expect(result.submissionId).toMatch(/^SUP-20260915-[A-F0-9]{12}$/)
-    expect(result.submission.nama_distributor).toBe('NAMA DISTRIBUTOR KANONIK')
-    expect(result.areas[0]).toMatchObject({
-      provinsi_name: 'ACEH',
-      area_name: 'Area 02',
-      area_ap: 'SP',
-      jumlah_supervisor: 2,
-    })
-    expect(result.supervisors.map((row) => row.supervisor_no)).toEqual([1, 2])
-    expect(result.supervisors[1]?.submission_area_id).toBe(
-      result.areas[0]?.submission_area_id,
+describe('Phase 4 transaction row generation', () => {
+  it('derives jumlah_supervisor and supervisor_no from array order', () => {
+    const records = buildTransactionRecords(input())
+    expect(records.areas[0]?.jumlah_supervisor).toBe(2)
+    expect(records.supervisors.map((row) => row.supervisor_no)).toEqual([1, 2])
+  })
+
+  it('does not write removed legacy columns', () => {
+    const records = buildTransactionRecords(input())
+    expect(records.submission).not.toHaveProperty('kode_distributor')
+    expect(records.areas[0]).not.toHaveProperty('provinsi_id')
+    expect(records.areas[0]).not.toHaveProperty('area_id')
+    expect(records.areas[0]).not.toHaveProperty('area_ap')
+  })
+
+  it('preserves parent ID, created_at, and valid child IDs during edit', () => {
+    const records = buildTransactionRecords(
+      input(),
+      new Date('2026-09-16T10:00:00.000Z'),
+      stored,
+    )
+    expect(records.submissionId).toBe('SUP-EXISTING')
+    expect(records.createdAt).toBe(stored.createdAt)
+    expect(records.updatedAt).toBe('2026-09-16T10:00:00.000Z')
+    expect(records.areas[0]?.submission_area_id).toBe('AREA-OLD')
+    expect(records.supervisors[0]?.supervisor_id).toBe('SPV-OLD')
+  })
+
+  it('schedules deleted old KTPs only after the replacement state is built', () => {
+    const records = buildTransactionRecords(input(), new Date(), stored)
+    expect(deriveOldFileIdsToCleanup(stored, records)).toEqual([
+      'file_deleted_12345',
+    ])
+  })
+
+  it('schedules the old KTP when a replacement file is persisted', () => {
+    const changed = input()
+    changed.wilayah[0]!.supervisors[0]!.ktp = {
+      fileId: 'file_replacement_12345',
+      fileName: 'KTP_REPLACEMENT.pdf',
+      mimeType: 'application/pdf',
+      fileUrl: 'https://drive.google.com/file/d/file_replacement_12345/view',
+    }
+    const records = buildTransactionRecords(changed, new Date(), stored)
+    expect(deriveOldFileIdsToCleanup(stored, records)).toContain(
+      'file_old_12345',
+    )
+    expect(deriveOldFileIdsToCleanup(stored, records)).not.toContain(
+      'file_replacement_12345',
     )
   })
 })

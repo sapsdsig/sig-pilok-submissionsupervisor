@@ -1,4 +1,4 @@
-import { google } from 'googleapis'
+import { google, type sheets_v4 } from 'googleapis'
 import { ApiError } from './errors.js'
 import { getGoogleAuth } from './googleAuth.js'
 
@@ -183,6 +183,21 @@ export async function appendTablesAtomically(
       })),
     },
   })
+}
+
+export async function executeSpreadsheetBatchUpdate(
+  spreadsheetId: string,
+  requests: readonly sheets_v4.Schema$Request[],
+): Promise<void> {
+  if (requests.length === 0) return
+  await sheetsApi().spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: { requests: [...requests] },
+  })
+}
+
+export function extendedCellValue(value: string | number | undefined) {
+  return toExtendedValue(value)
 }
 
 export async function verifySheetAccess(

@@ -6,11 +6,11 @@ export default async function handler(request: ApiRequest, response: ApiResponse
   if (request.method !== 'GET') return rejectMethod(response, 'GET')
 
   try {
-    const provinceId = requireSingleQuery(
-      request.query.provinceId,
-      'Provinsi ID',
+    const provinceName = requireSingleQuery(
+      request.query.provinceName,
+      'Provinsi',
     )
-    const areas = await getAreasByProvince(provinceId)
+    const areas = await getAreasByProvince(provinceName)
     response.setHeader('Cache-Control', 'private, no-store')
     return response.status(200).json(areas)
   } catch (error) {

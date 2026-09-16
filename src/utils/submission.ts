@@ -7,19 +7,17 @@ import type {
 export const normalizeSubmission = (
   values: SupervisorFormValues,
 ): NormalizedSubmission => ({
-  kodeDistributor: values.kodeDistributor,
   namaDistributor: values.namaDistributor,
   wilayah: values.wilayah.map((area) => ({
-    provinsiId: area.provinsiId,
+    submissionAreaId: area.submissionAreaId,
     provinsiName: area.provinsiName,
-    areaId: area.areaId,
     areaName: area.areaName,
-    areaAp: area.areaAp,
-    jumlahSupervisor: area.jumlahSupervisor,
+    jumlahSupervisor: area.supervisors.length,
     supervisors: area.supervisors.map((supervisor, index) => ({
+      supervisorId: supervisor.supervisorId,
       supervisorNo: index + 1,
       namaSupervisor: supervisor.namaSupervisor,
-      ktp: supervisor.ktp as File,
+      ktp: supervisor.ktp,
     })),
   })),
 })
@@ -27,18 +25,24 @@ export const normalizeSubmission = (
 export const toDevelopmentSubmission = (
   submission: NormalizedSubmission,
 ): DevelopmentSubmission => ({
-  kodeDistributor: submission.kodeDistributor,
   namaDistributor: submission.namaDistributor,
   wilayah: submission.wilayah.map((area) => ({
     ...area,
     supervisors: area.supervisors.map((supervisor) => ({
+      supervisorId: supervisor.supervisorId,
       supervisorNo: supervisor.supervisorNo,
       namaSupervisor: supervisor.namaSupervisor,
-      ktp: {
-        name: supervisor.ktp.name,
-        type: supervisor.ktp.type,
-        size: supervisor.ktp.size,
-      },
+      ktp:
+        supervisor.ktp?.kind === 'new'
+          ? {
+              name: supervisor.ktp.file.name,
+              type: supervisor.ktp.file.type,
+              size: supervisor.ktp.file.size,
+            }
+          : {
+              fileId: supervisor.ktp?.fileId ?? '',
+              fileName: supervisor.ktp?.fileName ?? '',
+            },
     })),
   })),
 })

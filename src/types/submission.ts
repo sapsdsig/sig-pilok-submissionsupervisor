@@ -1,21 +1,21 @@
+import type { KtpState } from './form'
+
 export type NormalizedSupervisor = {
+  supervisorId?: string
   supervisorNo: number
   namaSupervisor: string
-  ktp: File
+  ktp: KtpState
 }
 
 export type NormalizedSubmissionArea = {
-  provinsiId: string
+  submissionAreaId?: string
   provinsiName: string
-  areaId: string
   areaName: string
-  areaAp: string
   jumlahSupervisor: number
   supervisors: NormalizedSupervisor[]
 }
 
 export type NormalizedSubmission = {
-  kodeDistributor: string
   namaDistributor: string
   wilayah: NormalizedSubmissionArea[]
 }
@@ -29,7 +29,11 @@ export type SafeFileMetadata = {
 export type DevelopmentSubmission = Omit<NormalizedSubmission, 'wilayah'> & {
   wilayah: Array<
     Omit<NormalizedSubmissionArea, 'supervisors'> & {
-      supervisors: Array<Omit<NormalizedSupervisor, 'ktp'> & { ktp: SafeFileMetadata }>
+      supervisors: Array<
+        Omit<NormalizedSupervisor, 'ktp'> & {
+          ktp: SafeFileMetadata | { fileId: string; fileName: string }
+        }
+      >
     }
   >
 }

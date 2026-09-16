@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { cleanupUploadedKtps } from '../../_lib/drive.js'
 import { ApiError, rejectMethod, sendApiError } from '../../_lib/errors.js'
 import type { ApiRequest, ApiResponse } from '../../_lib/http.js'
-import { hasStoredSubmission } from '../../_lib/transactions.js'
+import { referencedFileIds } from '../../_lib/transactions.js'
 import { requestTokenSchema } from '../../_lib/requestToken.js'
 
 const cleanupSchema = z
@@ -23,17 +23,21 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       throw new ApiError(400, 'REQUEST_INVALID', 'Permintaan cleanup tidak valid.')
     }
 
-    // Jangan hapus file jika respons submission hilang setelah Sheets sebenarnya
-    // sudah berhasil menyimpan deterministic submission ID.
-    const stored = await hasStoredSubmission(parsed.data.requestToken)
-    const deleted = stored
-      ? 0
-      : await cleanupUploadedKtps(
-          parsed.data.requestToken,
-          parsed.data.fileIds,
-        )
+    // A failed/ambiguous create or edit may have committed despite a lost
+    // response. Never delete a newly uploaded file that Sheets references.
+    const referenced = await referencedFileIds(parsed.data.fileIds)
+    const unreferenced = parsed.data.fileIds.filter(
+      (fileId) => !referenced.has(fileId),
+    )
+    const deleted = await cleanupUploadedKtps(
+      parsed.data.requestToken,
+      unreferenced,
+    )
     response.setHeader('Cache-Control', 'private, no-store')
-    return response.status(200).json({ deleted, skippedBecauseStored: Boolean(stored) })
+    return response.status(200).json({
+      deleted,
+      skippedBecauseReferenced: referenced.size,
+    })
   } catch (error) {
     return sendApiError(response, error)
   }

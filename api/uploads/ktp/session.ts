@@ -10,16 +10,16 @@ import { ApiError, rejectMethod, sendApiError } from '../../_lib/errors.js'
 import type { ApiRequest, ApiResponse } from '../../_lib/http.js'
 import {
   getCanonicalRegion,
-  getDistributorByCode,
+  getCanonicalDistributor,
 } from '../../_lib/masterData.js'
 import { requestTokenSchema } from '../../_lib/requestToken.js'
 
 const sessionSchema = z
   .object({
     requestToken: requestTokenSchema,
-    kodeDistributor: z.string().trim().min(1).max(100),
-    provinsiId: z.string().trim().min(1).max(100),
-    areaId: z.string().trim().min(1).max(100),
+    namaDistributor: z.string().trim().min(1).max(200),
+    provinsiName: z.string().trim().min(1).max(150),
+    areaName: z.string().trim().min(1).max(150),
     supervisorNo: z.number().int().min(1).max(10),
     namaSupervisor: z.string().trim().min(1).max(150),
     fileName: z.string().trim().min(1).max(255),
@@ -47,8 +47,8 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     }
 
     await Promise.all([
-      getDistributorByCode(parsed.data.kodeDistributor),
-      getCanonicalRegion(parsed.data.provinsiId, parsed.data.areaId),
+      getCanonicalDistributor(parsed.data.namaDistributor),
+      getCanonicalRegion(parsed.data.provinsiName, parsed.data.areaName),
     ])
     const session = await createResumableKtpSession({
       ...parsed.data,

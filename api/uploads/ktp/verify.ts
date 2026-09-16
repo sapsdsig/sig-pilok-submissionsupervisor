@@ -8,9 +8,9 @@ const verifySchema = z
   .object({
     requestToken: requestTokenSchema,
     fileId: z.string().trim().min(10).max(200).regex(/^[A-Za-z0-9_-]+$/),
-    kodeDistributor: z.string().trim().min(1).max(100),
-    provinsiId: z.string().trim().min(1).max(100),
-    areaId: z.string().trim().min(1).max(100),
+    namaDistributor: z.string().trim().min(1).max(200),
+    provinsiName: z.string().trim().min(1).max(150),
+    areaName: z.string().trim().min(1).max(150),
     supervisorNo: z.number().int().min(1).max(10),
   })
   .strict()

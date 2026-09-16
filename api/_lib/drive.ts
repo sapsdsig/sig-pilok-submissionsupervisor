@@ -46,8 +46,8 @@ export function sanitizeFileSegment(value: string, maxLength = 50): string {
 }
 
 export function createStoredKtpFileName(input: {
-  kodeDistributor: string
-  areaId: string
+  namaDistributor: string
+  areaName: string
   supervisorNo: number
   namaSupervisor: string
   mimeType: string
@@ -74,8 +74,8 @@ export function createStoredKtpFileName(input: {
 
   return [
     'KTP',
-    sanitizeFileSegment(input.kodeDistributor),
-    sanitizeFileSegment(input.areaId),
+    sanitizeFileSegment(input.namaDistributor),
+    sanitizeFileSegment(input.areaName),
     String(input.supervisorNo).padStart(2, '0'),
     sanitizeFileSegment(input.namaSupervisor),
     timestamp,
@@ -87,9 +87,9 @@ function contextProperties(context: KtpUploadContext) {
   return {
     application: DRIVE_APP_MARKER,
     requestToken: context.requestToken,
-    kodeDistributor: context.kodeDistributor,
-    provinsiId: context.provinsiId,
-    areaId: context.areaId,
+    namaDistributor: context.namaDistributor,
+    provinsiName: context.provinsiName,
+    areaName: context.areaName,
     supervisorNo: String(context.supervisorNo),
   }
 }
@@ -213,6 +213,57 @@ export async function verifyUploadedKtp(
   }
 }
 
+export async function verifyExistingKtp(
+  fileId: string,
+  expected: Pick<UploadedKtp, 'fileId' | 'fileName' | 'fileUrl'>,
+): Promise<UploadedKtp> {
+  if (fileId !== expected.fileId) {
+    throw new ApiError(400, 'KTP_INVALID', 'Referensi KTP tersimpan tidak valid.')
+  }
+  const folderId = getDriveKtpFolderId()
+  let response
+  try {
+    response = await driveApi().files.get({
+      fileId,
+      fields: 'id,name,mimeType,size,webViewLink,parents,trashed,appProperties',
+      supportsAllDrives: true,
+    })
+  } catch {
+    throw new ApiError(
+      400,
+      'KTP_INVALID',
+      'KTP tersimpan tidak ditemukan atau tidak dapat diverifikasi.',
+    )
+  }
+  const file = response.data
+  const size = Number(file.size)
+  if (
+    file.id !== expected.fileId ||
+    file.name !== expected.fileName ||
+    file.webViewLink !== expected.fileUrl ||
+    !file.mimeType ||
+    file.trashed ||
+    !file.parents?.includes(folderId) ||
+    file.appProperties?.application !== DRIVE_APP_MARKER ||
+    !isAllowedKtpMimeType(file.mimeType) ||
+    !Number.isFinite(size) ||
+    size <= 0 ||
+    size > MAX_KTP_FILE_SIZE_BYTES
+  ) {
+    throw new ApiError(
+      400,
+      'KTP_INVALID',
+      'KTP tersimpan tidak valid atau bukan bagian dari aplikasi ini.',
+    )
+  }
+  return {
+    fileId: expected.fileId,
+    fileName: expected.fileName,
+    fileUrl: expected.fileUrl,
+    mimeType: file.mimeType,
+  }
+}
+
 async function belongsToRequest(fileId: string, requestToken: string) {
   try {
     const response = await driveApi().files.get({
@@ -242,6 +293,42 @@ export async function cleanupUploadedKtps(
       deleted += 1
     } catch (error) {
       console.error('Best-effort KTP cleanup failed', {
+        fileId,
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      })
+    }
+  }
+  return deleted
+}
+
+async function belongsToAppFolder(fileId: string) {
+  try {
+    const response = await driveApi().files.get({
+      fileId,
+      fields: 'id,parents,trashed,appProperties',
+      supportsAllDrives: true,
+    })
+    return (
+      !response.data.trashed &&
+      response.data.parents?.includes(getDriveKtpFolderId()) === true &&
+      response.data.appProperties?.application === DRIVE_APP_MARKER
+    )
+  } catch {
+    return false
+  }
+}
+
+export async function cleanupPersistedKtps(
+  fileIds: readonly string[],
+): Promise<number> {
+  let deleted = 0
+  for (const fileId of [...new Set(fileIds)]) {
+    if (!(await belongsToAppFolder(fileId))) continue
+    try {
+      await driveApi().files.delete({ fileId, supportsAllDrives: true })
+      deleted += 1
+    } catch (error) {
+      console.error('Best-effort old KTP cleanup failed', {
         fileId,
         errorName: error instanceof Error ? error.name : 'UnknownError',
       })

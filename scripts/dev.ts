@@ -2,24 +2,28 @@ import 'dotenv/config'
 import { createServer } from 'node:http'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { createServer as createViteServer } from 'vite'
-import distributorHandler from '../api/distributors/[code].js'
+import distributorsHandler from '../api/distributors.js'
 import provincesHandler from '../api/regions/provinces.js'
 import areasHandler from '../api/regions/areas.js'
 import uploadSessionHandler from '../api/uploads/ktp/session.js'
 import uploadVerifyHandler from '../api/uploads/ktp/verify.js'
 import uploadCleanupHandler from '../api/uploads/ktp/cleanup.js'
 import submissionsHandler from '../api/submissions.js'
+import submissionLookupHandler from '../api/submissions/by-distributor.js'
+import submissionUpdateHandler from '../api/submissions/[submissionId].js'
 import type { ApiRequest, ApiResponse } from '../api/_lib/http.js'
 
 type ApiHandler = (request: ApiRequest, response: ApiResponse) => Promise<unknown>
 
 const routes = new Map<string, ApiHandler>([
+  ['/api/distributors', distributorsHandler],
   ['/api/regions/provinces', provincesHandler],
   ['/api/regions/areas', areasHandler],
   ['/api/uploads/ktp/session', uploadSessionHandler],
   ['/api/uploads/ktp/verify', uploadVerifyHandler],
   ['/api/uploads/ktp/cleanup', uploadCleanupHandler],
   ['/api/submissions', submissionsHandler],
+  ['/api/submissions/by-distributor', submissionLookupHandler],
 ])
 
 async function readJsonBody(request: IncomingMessage): Promise<unknown> {
@@ -71,10 +75,10 @@ const server = createServer(async (request, response) => {
   let handler = routes.get(url.pathname)
   const query = queryFrom(url)
 
-  const distributorMatch = url.pathname.match(/^\/api\/distributors\/([^/]+)$/)
-  if (distributorMatch) {
-    handler = distributorHandler
-    query.code = decodeURIComponent(distributorMatch[1] ?? '')
+  const submissionMatch = url.pathname.match(/^\/api\/submissions\/([^/]+)$/)
+  if (submissionMatch && submissionMatch[1] !== 'by-distributor') {
+    handler = submissionUpdateHandler
+    query.submissionId = decodeURIComponent(submissionMatch[1] ?? '')
   }
 
   if (!handler) {
