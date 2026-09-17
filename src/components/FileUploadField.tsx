@@ -3,7 +3,7 @@ import { useController, useFormContext } from 'react-hook-form'
 import { KTP_FILE_ACCEPT, MAX_KTP_FILE_SIZE_LABEL } from '../constants/files'
 import type { ExistingKtp, SupervisorFormValues } from '../types/form'
 import { FieldError } from './FieldError'
-import { TrashIcon, UploadIcon } from './icons'
+import { CheckIcon, TrashIcon, UploadIcon } from './icons'
 
 type KtpFieldPath = `wilayah.${number}.supervisors.${number}.ktp`
 
@@ -52,26 +52,41 @@ export function FileUploadField(props: {
       />
       {file ? (
         <div className='file-selected' tabIndex={-1} {...targetProps}>
-          <div className='min-w-0'>
-            <p className='truncate text-sm font-semibold'>{file.name}</p>
-            <p className='text-xs text-slate-500'>
-              File baru - {(file.size / 1024).toFixed(0)} KB
-            </p>
+          <div className='flex min-w-0 items-center gap-3'>
+            <span className='file-state-icon' aria-hidden='true'>
+              <CheckIcon className='size-4' />
+            </span>
+            <div className='min-w-0'>
+              <p className='truncate text-sm font-semibold'>{file.name}</p>
+              <p className='text-xs text-slate-500'>
+                File baru · {(file.size / 1024).toFixed(0)} KB
+              </p>
+            </div>
           </div>
-          <div className='flex items-center gap-1'>
+          <div className='file-actions'>
             <label htmlFor={props.inputId} className='button-text'>Ganti</label>
-            <button type='button' className='icon-button text-red-600' onClick={clearNewFile}>
+            <button
+              type='button'
+              className='icon-button icon-button-danger'
+              onClick={clearNewFile}
+              title='Hapus file baru'
+            >
               <TrashIcon className='size-4' />
             </button>
           </div>
         </div>
       ) : existing ? (
         <div className='file-selected' tabIndex={-1} {...targetProps}>
-          <div className='min-w-0'>
-            <p className='text-xs text-slate-500'>KTP tersimpan:</p>
-            <p className='truncate text-sm font-semibold'>{existing.fileName}</p>
+          <div className='flex min-w-0 items-center gap-3'>
+            <span className='file-state-icon' aria-hidden='true'>
+              <CheckIcon className='size-4' />
+            </span>
+            <div className='min-w-0'>
+              <p className='text-xs text-slate-500'>KTP tersimpan</p>
+              <p className='truncate text-sm font-semibold'>{existing.fileName}</p>
+            </div>
           </div>
-          <div className='flex items-center gap-1'>
+          <div className='file-actions'>
             <a className='button-text' href={existing.fileUrl} target='_blank' rel='noreferrer'>Lihat File</a>
             <label htmlFor={props.inputId} className='button-text'>Ganti KTP</label>
           </div>
@@ -90,8 +105,8 @@ export function FileUploadField(props: {
             }
           }}
         >
-          <UploadIcon className='size-7 text-sky-700' />
-          <span className='text-sm font-semibold text-sky-800'>Pilih file KTP</span>
+          <UploadIcon className='size-7 text-sig-red' />
+          <span className='text-sm font-semibold text-sig-ink'>Pilih file KTP</span>
           <span className='text-xs text-slate-500'>
             JPG, JPEG, PNG, atau PDF - maks. {MAX_KTP_FILE_SIZE_LABEL}
           </span>

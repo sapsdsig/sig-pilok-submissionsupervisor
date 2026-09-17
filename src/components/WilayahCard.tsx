@@ -123,7 +123,7 @@ export function WilayahCard(props: Props) {
         </div>
         <button
           type='button'
-          className='icon-button text-slate-500 disabled:opacity-30'
+          className='icon-button icon-button-danger disabled:opacity-30'
           disabled={!props.canRemove}
           onClick={props.onRemove}
           title={props.canRemove ? 'Hapus Wilayah' : 'Minimal satu Wilayah'}

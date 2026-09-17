@@ -14,6 +14,12 @@ configuration remain server-side.
 React, TypeScript, Vite, Tailwind CSS, React Hook Form, Zod, Google APIs, and
 Vercel-compatible TypeScript server functions.
 
+## Shared UI baseline
+
+The Supervisor form is the visual baseline for other PILOK forms. Branding,
+layout, field, button, upload, and feedback conventions are documented in
+[docs/ui-guidelines.md](docs/ui-guidelines.md).
+
 ## Local setup
 
 Requirements: Node.js 20 or newer, three configured Google Spreadsheets, and

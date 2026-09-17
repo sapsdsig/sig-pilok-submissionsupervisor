@@ -154,7 +154,7 @@ export function SearchableSelect(props: Props) {
         <div
           id={listId}
           role='listbox'
-          className='absolute z-30 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-slate-200 bg-white p-1 shadow-xl'
+          className='searchable-select-menu'
         >
           {filtered.length === 0 ? (
             <p className='px-3 py-2 text-sm text-slate-500'>
@@ -167,7 +167,7 @@ export function SearchableSelect(props: Props) {
                 type='button'
                 role='option'
                 aria-selected={option.value === props.value}
-                className={`block w-full truncate rounded-md px-3 py-2 text-left text-sm ${index === activeIndex ? 'bg-sky-50 text-sky-900' : 'text-slate-700 hover:bg-slate-50'}`}
+                className={`searchable-select-option ${index === activeIndex ? 'searchable-select-option-active' : ''}`}
                 title={option.label}
                 onMouseEnter={() => setActiveIndex(index)}
                 onMouseDown={(event) => {

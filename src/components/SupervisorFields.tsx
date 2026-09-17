@@ -39,7 +39,7 @@ export function SupervisorFields(props: Props) {
         </div>
         <button
           type='button'
-          className='icon-button text-red-600 disabled:opacity-30'
+          className='icon-button icon-button-danger disabled:opacity-30'
           disabled={!props.canRemove}
           title={props.canRemove ? 'Hapus Supervisor' : 'Minimal satu Supervisor'}
           onClick={props.onRemove}

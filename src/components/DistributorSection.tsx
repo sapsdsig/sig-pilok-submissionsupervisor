@@ -2,6 +2,7 @@ import { useController, useFormContext } from 'react-hook-form'
 import type { SupervisorFormValues } from '../types/form'
 import type { Distributor } from '../types/masterData'
 import { FieldError } from './FieldError'
+import { SectionCard, SectionHeader, StatusBanner } from './FormLayout'
 import { SearchableSelect } from './SearchableSelect'
 
 type Props = {
@@ -23,14 +24,12 @@ export function DistributorSection(props: Props) {
   const fieldId = 'nama-distributor'
   const errorId = 'nama-distributor-error'
   return (
-    <section className='form-section'>
-      <div className='section-heading'>
-        <span className='step-badge'>1</span>
-        <div>
-          <h2>Informasi Distributor</h2>
-          <p>Cari dan pilih Distributor yang tersedia pada master.</p>
-        </div>
-      </div>
+    <SectionCard>
+      <SectionHeader
+        step={1}
+        title='Informasi Distributor'
+        description='Cari dan pilih Distributor yang tersedia pada master.'
+      />
       <label className='field-label mt-6' htmlFor={fieldId}>Distributor *</label>
       <SearchableSelect
         inputId={fieldId}
@@ -48,15 +47,36 @@ export function DistributorSection(props: Props) {
         onChange={props.onSelect}
       />
       <FieldError id={errorId} message={distributor.fieldState.error?.message} />
-      {props.lookupStatus === 'loading' && <p className='mt-2 text-sm text-sky-700'>Memeriksa data tersimpan...</p>}
-      {props.lookupStatus === 'create' && <p className='mt-2 text-sm text-emerald-700'>Data baru.</p>}
-      {props.lookupStatus === 'edit' && <p className='mt-2 text-sm text-sky-800'>Data tersimpan ditemukan - Mode Edit.</p>}
-      {props.loadError && (
-        <p className='mt-2 text-sm text-red-700' role='alert'>
-          {props.loadError}{' '}
-          <button type='button' className='font-bold underline' onClick={props.onRetry}>Coba lagi</button>
-        </p>
-      )}
-    </section>
+      <div className='mt-3 space-y-2'>
+        {props.lookupStatus === 'loading' && (
+          <StatusBanner variant='info' compact>
+            Memeriksa data tersimpan...
+          </StatusBanner>
+        )}
+        {props.lookupStatus === 'create' && (
+          <StatusBanner variant='success' compact>
+            Distributor siap untuk data baru.
+          </StatusBanner>
+        )}
+        {props.lookupStatus === 'edit' && (
+          <StatusBanner variant='info' compact>
+            Data tersimpan ditemukan · Mode Edit.
+          </StatusBanner>
+        )}
+        {props.loadError && (
+          <StatusBanner
+            variant='error'
+            compact
+            action={
+              <button type='button' className='button-text' onClick={props.onRetry}>
+                Coba lagi
+              </button>
+            }
+          >
+            {props.loadError}
+          </StatusBanner>
+        )}
+      </div>
+    </SectionCard>
   )
 }

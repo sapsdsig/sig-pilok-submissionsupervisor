@@ -4,6 +4,13 @@ import { FormProvider, useFieldArray, useForm } from 'react-hook-form'
 import { ConfirmationDialog } from './components/ConfirmationDialog'
 import { DistributorSection } from './components/DistributorSection'
 import { FieldError } from './components/FieldError'
+import {
+  ActionBar,
+  FormShell,
+  SectionCard,
+  SectionHeader,
+  StatusBanner,
+} from './components/FormLayout'
 import { CheckIcon } from './components/icons'
 import { WilayahCard } from './components/WilayahCard'
 import { createSupervisorFormSchema } from './schemas/supervisorFormSchema'
@@ -336,34 +343,38 @@ function App() {
   }
 
   return (
-    <div className='min-h-screen bg-slate-100'>
-      <header className='border-b border-sky-900/20 bg-gradient-to-r from-[#0d416d] to-[#12689b] text-white shadow-sm'>
-        <div className='mx-auto max-w-6xl px-4 py-7 sm:px-6'>
-          <p className='text-xs font-bold uppercase tracking-widest text-sky-200'>PILOK</p>
-          <h1 className='mt-1 text-2xl font-bold sm:text-3xl'>Form Data Supervisor</h1>
-          <p className='mt-3 text-sm text-sky-100'>
-            Kelola wilayah operasional dan Supervisor untuk Distributor terdaftar.
+    <FormShell
+      title='PILOK - Supervisor'
+      subtitle='Form pendataan Supervisor Distributor dan wilayah operasional.'
+    >
+      {successResult ? (
+        <SectionCard className='mx-auto max-w-2xl py-10 text-center sm:py-12'>
+          <span className='success-icon'>
+            <CheckIcon className='size-7' />
+          </span>
+          <h2 className='mt-4 text-2xl font-bold'>
+            Data Supervisor berhasil disimpan.
+          </h2>
+          <p className='mt-2 text-sm text-slate-600'>Submission ID</p>
+          <p className='mt-1 font-mono font-semibold text-slate-800'>
+            {successResult.submissionId}
           </p>
-        </div>
-      </header>
-      <main className='mx-auto max-w-6xl px-4 py-6 sm:px-6'>
-        {successResult ? (
-          <section className='mx-auto max-w-2xl rounded-2xl bg-white p-8 text-center shadow-sm'>
-            <CheckIcon className='mx-auto size-12 text-emerald-600' />
-            <h2 className='mt-4 text-2xl font-bold'>Data Supervisor berhasil disimpan.</h2>
-            <p className='mt-3 font-mono'>{successResult.submissionId}</p>
-            <button type='button' className='button-primary mt-6' onClick={startNewForm}>
-              Isi Form Baru
-            </button>
-          </section>
-        ) : (
-          <FormProvider {...methods}>
-            <form
-              ref={formRef}
-              className='space-y-6'
-              noValidate
-              onSubmit={handleSubmit(onSubmit, onInvalidSubmit)}
-            >
+          <button
+            type='button'
+            className='button-primary mt-6'
+            onClick={startNewForm}
+          >
+            Isi Form Baru
+          </button>
+        </SectionCard>
+      ) : (
+        <FormProvider {...methods}>
+          <form
+            ref={formRef}
+            className='space-y-6'
+            noValidate
+            onSubmit={handleSubmit(onSubmit, onInvalidSubmit)}
+          >
               <DistributorSection
                 distributors={distributors}
                 isLoading={loadingMaster}
@@ -374,17 +385,18 @@ function App() {
               />
 
               {editSuccess && (
-                <div className='rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800' role='status'>
-                  Perubahan data Supervisor berhasil disimpan. Submission ID: {editSuccess.submissionId}
-                </div>
+                <StatusBanner variant='success' title='Perubahan berhasil disimpan'>
+                  Submission ID: <span className='font-mono font-semibold'>{editSuccess.submissionId}</span>
+                </StatusBanner>
               )}
 
               {ready && (
-                <section className='form-section'>
-                  <div className='section-heading'>
-                    <span className='step-badge'>2</span>
-                    <div><h2>Wilayah Operasional</h2><p>Setiap kartu mewakili satu Provinsi dan Area.</p></div>
-                  </div>
+                <SectionCard>
+                  <SectionHeader
+                    step={2}
+                    title='Wilayah Operasional'
+                    description='Setiap kartu mewakili satu Provinsi dan Area.'
+                  />
                   <div className='mt-6 space-y-5'>
                     {wilayahArray.fields.map((field, index) => (
                       <WilayahCard
@@ -401,35 +413,43 @@ function App() {
                   <button type='button' className='button-secondary mt-5' onClick={() => wilayahArray.append(createEmptyWilayah())}>
                     + Tambah Wilayah
                   </button>
-                </section>
+                </SectionCard>
               )}
 
               {ready && (
-                <div className='rounded-2xl border border-slate-200 bg-white p-5 shadow-sm'>
-                  {submissionError && <div className='mb-4 text-sm text-red-700' role='alert'>{submissionError}</div>}
-                  {processingStatus?.stage === 'upload' && (
-                    <p className='mb-4 text-sm text-sky-800' role='status'>
-                      Mengunggah KTP Supervisor {processingStatus.supervisorNo}, Wilayah {processingStatus.wilayahNo}: {processingStatus.progress}%
-                    </p>
-                  )}
-                  {processingStatus?.stage === 'persistence' && (
-                    <p className='mb-4 text-sm text-sky-800' role='status'>Menyimpan data ke Google Sheets...</p>
-                  )}
-                  <div className='flex justify-end'>
-                    <button type='submit' className='button-primary' disabled={isSubmitting || Boolean(processingStatus)}>
-                      {isSubmitting
-                        ? 'Memproses...'
-                        : mode.kind === 'edit'
-                          ? 'Simpan Perubahan'
-                          : 'Simpan Data'}
-                    </button>
-                  </div>
-                </div>
+                <ActionBar
+                  feedback={
+                    submissionError ? (
+                      <StatusBanner variant='error' compact>
+                        {submissionError}
+                      </StatusBanner>
+                    ) : processingStatus?.stage === 'upload' ? (
+                      <StatusBanner variant='info' compact>
+                        Mengunggah KTP Supervisor {processingStatus.supervisorNo}, Wilayah {processingStatus.wilayahNo}: {processingStatus.progress}%
+                      </StatusBanner>
+                    ) : processingStatus?.stage === 'persistence' ? (
+                      <StatusBanner variant='info' compact>
+                        Menyimpan data ke Google Sheets...
+                      </StatusBanner>
+                    ) : undefined
+                  }
+                >
+                  <button
+                    type='submit'
+                    className='button-primary'
+                    disabled={isSubmitting || Boolean(processingStatus)}
+                  >
+                    {isSubmitting
+                      ? 'Memproses...'
+                      : mode.kind === 'edit'
+                        ? 'Simpan Perubahan'
+                        : 'Simpan Data'}
+                  </button>
+                </ActionBar>
               )}
-            </form>
-          </FormProvider>
-        )}
-      </main>
+          </form>
+        </FormProvider>
+      )}
 
       <ConfirmationDialog
         open={pendingWilayah !== null}
@@ -453,7 +473,7 @@ function App() {
           if (next) void loadDistributorSubmission(next)
         }}
       />
-    </div>
+    </FormShell>
   )
 }
 

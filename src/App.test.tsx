@@ -5,6 +5,9 @@ import App from './App'
 describe('App', () => {
   it('merender searchable Distributor sebagai langkah pertama', () => {
     const html = renderToString(<App />)
+    expect(html).toContain('Logo SIG')
+    expect(html).toContain('PILOK - Supervisor')
+    expect(html).toContain('Form pendataan Supervisor Distributor')
     expect(html).toContain('Informasi Distributor')
     expect(html).toContain('combobox')
     expect(html).not.toContain('Kode Distributor')
