@@ -26,6 +26,7 @@ import {
 import type { Distributor, ProvinceOption } from './types/masterData'
 import { normalizeSubmission } from './utils/submission'
 import { createRequestToken } from './utils/requestToken'
+import { focusFirstInvalidField } from './utils/formFocus'
 
 type FormMode =
   | { kind: 'create' }
@@ -84,8 +85,9 @@ function App() {
   const methods = useForm<SupervisorFormValues>({
     resolver: zodResolver(schema),
     defaultValues: createDefaultFormValues(),
-    mode: 'onBlur',
+    mode: 'onSubmit',
     reValidateMode: 'onChange',
+    shouldFocusError: false,
   })
   const {
     control,
@@ -109,6 +111,7 @@ function App() {
   const [editSuccess, setEditSuccess] = useState<SubmissionResult>()
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>()
   const processingRef = useRef(false)
+  const formRef = useRef<HTMLFormElement>(null)
 
   const loadMasters = useCallback(async () => {
     setLoadingMaster(true)
@@ -326,6 +329,11 @@ function App() {
   }
 
   const ready = mode !== undefined && lookupStatus !== 'loading'
+  const onInvalidSubmit = () => {
+    window.requestAnimationFrame(() => {
+      if (formRef.current) focusFirstInvalidField(formRef.current)
+    })
+  }
 
   return (
     <div className='min-h-screen bg-slate-100'>
@@ -350,7 +358,12 @@ function App() {
           </section>
         ) : (
           <FormProvider {...methods}>
-            <form className='space-y-6' noValidate onSubmit={handleSubmit(onSubmit)}>
+            <form
+              ref={formRef}
+              className='space-y-6'
+              noValidate
+              onSubmit={handleSubmit(onSubmit, onInvalidSubmit)}
+            >
               <DistributorSection
                 distributors={distributors}
                 isLoading={loadingMaster}

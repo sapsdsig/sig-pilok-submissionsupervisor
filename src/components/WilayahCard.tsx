@@ -25,7 +25,7 @@ export function WilayahCard(props: Props) {
     control,
     getValues,
     setValue,
-    formState: { errors },
+    formState: { errors, submitCount },
   } = useFormContext<SupervisorFormValues>()
   const { fields, append, remove } = useFieldArray({
     control,
@@ -45,6 +45,10 @@ export function WilayahCard(props: Props) {
   const [retry, setRetry] = useState(0)
   const [pendingSupervisor, setPendingSupervisor] = useState<number | null>(null)
   const wilayahErrors = errors.wilayah?.[props.index]
+  const provinceId = `provinsi-${props.index}`
+  const areaId = `area-${props.index}`
+  const provinceErrorId = `${provinceId}-error`
+  const areaErrorId = `${areaId}-error`
 
   useEffect(() => {
     let active = true
@@ -80,11 +84,11 @@ export function WilayahCard(props: Props) {
         ?.provinsiName ?? ''
     setValue(`wilayah.${props.index}.provinsiName`, canonical, {
       shouldDirty: true,
-      shouldValidate: true,
+      shouldValidate: submitCount > 0,
     })
     setValue(`wilayah.${props.index}.areaName`, '', {
       shouldDirty: true,
-      shouldValidate: true,
+      shouldValidate: submitCount > 0,
     })
   }
 
@@ -131,8 +135,12 @@ export function WilayahCard(props: Props) {
       <div className='space-y-6 p-5 sm:p-6'>
         <div className='grid gap-5 md:grid-cols-2'>
           <div>
-            <label className='field-label'>Provinsi *</label>
+            <label className='field-label' htmlFor={provinceId}>Provinsi *</label>
             <SearchableSelect
+              inputId={provinceId}
+              ariaLabel={`Provinsi Wilayah ${props.index + 1}`}
+              fieldPath={`wilayah.${props.index}.provinsiName`}
+              describedBy={wilayahErrors?.provinsiName ? provinceErrorId : undefined}
               value={provinceName}
               options={props.provinces.map((item) => ({
                 value: item.provinsiName,
@@ -143,11 +151,15 @@ export function WilayahCard(props: Props) {
               invalid={Boolean(wilayahErrors?.provinsiName)}
               onChange={changeProvince}
             />
-            <FieldError message={wilayahErrors?.provinsiName?.message} />
+            <FieldError id={provinceErrorId} message={wilayahErrors?.provinsiName?.message} />
           </div>
           <div>
-            <label className='field-label'>Area *</label>
+            <label className='field-label' htmlFor={areaId}>Area *</label>
             <SearchableSelect
+              inputId={areaId}
+              ariaLabel={`Area Wilayah ${props.index + 1}`}
+              fieldPath={`wilayah.${props.index}.areaName`}
+              describedBy={wilayahErrors?.areaName ? areaErrorId : undefined}
               value={areaName}
               options={areas.map((item) => ({
                 value: item.areaName,
@@ -161,11 +173,11 @@ export function WilayahCard(props: Props) {
               onChange={(value) =>
                 setValue(`wilayah.${props.index}.areaName`, value, {
                   shouldDirty: true,
-                  shouldValidate: true,
+                  shouldValidate: submitCount > 0,
                 })
               }
             />
-            <FieldError message={wilayahErrors?.areaName?.message} />
+            <FieldError id={areaErrorId} message={wilayahErrors?.areaName?.message} />
             {areaError && (
               <button type='button' className='text-xs text-red-700 underline' onClick={() => setRetry((value) => value + 1)}>
                 {areaError} Coba lagi

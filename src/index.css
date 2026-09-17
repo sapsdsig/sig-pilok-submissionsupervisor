@@ -75,6 +75,14 @@
     @apply border-red-400 focus:border-red-500 focus:ring-red-100;
   }
 
+  .searchable-select-control {
+    @apply flex h-11 w-full items-center gap-3 rounded-lg border px-3.5 text-sm outline-none transition focus:border-sky-600 focus:ring-3 focus:ring-sky-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500;
+  }
+
+  .searchable-select-selected {
+    @apply border-sky-300 bg-white font-medium text-slate-900 hover:border-sky-500;
+  }
+
   .button-primary {
     @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-sky-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-sky-800 focus:outline-none focus:ring-3 focus:ring-sky-200 disabled:cursor-not-allowed disabled:opacity-60;
   }

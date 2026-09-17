@@ -24,6 +24,7 @@ export function SupervisorFields(props: Props) {
     errors.wilayah?.[props.wilayahIndex]?.supervisors?.[props.supervisorIndex]
       ?.namaSupervisor
   const nameId = `nama-supervisor-${props.wilayahIndex}-${props.supervisorIndex}`
+  const nameErrorId = `${nameId}-error`
 
   return (
     <div className='supervisor-panel'>
@@ -54,10 +55,13 @@ export function SupervisorFields(props: Props) {
             type='text'
             autoComplete='name'
             className={`text-input ${nameError ? 'input-error' : ''}`}
+            aria-invalid={Boolean(nameError)}
+            aria-describedby={nameError ? nameErrorId : undefined}
+            data-field-path={namePath}
             placeholder='Masukkan nama lengkap'
             {...register(namePath)}
           />
-          <FieldError message={nameError?.message} />
+          <FieldError id={nameErrorId} message={nameError?.message} />
         </div>
         <FileUploadField
           inputId={`ktp-supervisor-${props.wilayahIndex}-${props.supervisorIndex}`}

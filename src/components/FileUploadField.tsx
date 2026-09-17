@@ -18,6 +18,12 @@ export function FileUploadField(props: {
   const existing: ExistingKtp | undefined =
     ktp?.kind === 'existing' ? ktp : ktp?.previous
   const file = ktp?.kind === 'new' ? ktp.file : undefined
+  const errorId = `${props.inputId}-error`
+  const targetProps = {
+    'aria-invalid': Boolean(fieldState.error),
+    'aria-describedby': fieldState.error ? errorId : undefined,
+    'data-field-path': props.name,
+  }
 
   const clearNewFile = () => {
     field.onChange(existing ?? null)
@@ -34,6 +40,7 @@ export function FileUploadField(props: {
         type='file'
         accept={KTP_FILE_ACCEPT}
         aria-invalid={Boolean(fieldState.error)}
+        aria-describedby={fieldState.error ? errorId : undefined}
         onBlur={field.onBlur}
         onChange={(event) => {
           const selected = event.target.files?.[0]
@@ -44,7 +51,7 @@ export function FileUploadField(props: {
         }}
       />
       {file ? (
-        <div className='file-selected'>
+        <div className='file-selected' tabIndex={-1} {...targetProps}>
           <div className='min-w-0'>
             <p className='truncate text-sm font-semibold'>{file.name}</p>
             <p className='text-xs text-slate-500'>
@@ -59,7 +66,7 @@ export function FileUploadField(props: {
           </div>
         </div>
       ) : existing ? (
-        <div className='file-selected'>
+        <div className='file-selected' tabIndex={-1} {...targetProps}>
           <div className='min-w-0'>
             <p className='text-xs text-slate-500'>KTP tersimpan:</p>
             <p className='truncate text-sm font-semibold'>{existing.fileName}</p>
@@ -70,7 +77,19 @@ export function FileUploadField(props: {
           </div>
         </div>
       ) : (
-        <label htmlFor={props.inputId} className='upload-box'>
+        <label
+          htmlFor={props.inputId}
+          className={`upload-box ${fieldState.error ? 'border-red-400 bg-red-50/40' : ''}`}
+          role='button'
+          tabIndex={0}
+          {...targetProps}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              inputRef.current?.click()
+            }
+          }}
+        >
           <UploadIcon className='size-7 text-sky-700' />
           <span className='text-sm font-semibold text-sky-800'>Pilih file KTP</span>
           <span className='text-xs text-slate-500'>
@@ -78,7 +97,7 @@ export function FileUploadField(props: {
           </span>
         </label>
       )}
-      <FieldError message={fieldState.error?.message} />
+      <FieldError id={errorId} message={fieldState.error?.message} />
     </div>
   )
 }

@@ -20,6 +20,8 @@ export function DistributorSection(props: Props) {
     value: item.namaDistributor,
     label: item.namaDistributor,
   }))
+  const fieldId = 'nama-distributor'
+  const errorId = 'nama-distributor-error'
   return (
     <section className='form-section'>
       <div className='section-heading'>
@@ -29,8 +31,12 @@ export function DistributorSection(props: Props) {
           <p>Cari dan pilih Distributor yang tersedia pada master.</p>
         </div>
       </div>
-      <label className='field-label mt-6'>Distributor *</label>
+      <label className='field-label mt-6' htmlFor={fieldId}>Distributor *</label>
       <SearchableSelect
+        inputId={fieldId}
+        ariaLabel='Distributor'
+        fieldPath='namaDistributor'
+        describedBy={distributor.fieldState.error ? errorId : undefined}
         value={distributor.field.value}
         options={options}
         placeholder='Cari distributor...'
@@ -41,7 +47,7 @@ export function DistributorSection(props: Props) {
         onBlur={distributor.field.onBlur}
         onChange={props.onSelect}
       />
-      <FieldError message={distributor.fieldState.error?.message} />
+      <FieldError id={errorId} message={distributor.fieldState.error?.message} />
       {props.lookupStatus === 'loading' && <p className='mt-2 text-sm text-sky-700'>Memeriksa data tersimpan...</p>}
       {props.lookupStatus === 'create' && <p className='mt-2 text-sm text-emerald-700'>Data baru.</p>}
       {props.lookupStatus === 'edit' && <p className='mt-2 text-sm text-sky-800'>Data tersimpan ditemukan - Mode Edit.</p>}
