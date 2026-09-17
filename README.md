@@ -129,6 +129,9 @@ Worksheet submission_supervisor:
 supervisor_id
 submission_id
 submission_area_id
+nama_distributor
+provinsi
+area
 supervisor_no
 nama_supervisor
 ktp_file_id
@@ -136,8 +139,14 @@ ktp_file_name
 ktp_file_url
 ~~~
 
-Legacy extra columns may remain physically present; they are ignored and are
-not required. No destructive sheet migration is performed by the application.
+The three reporting fields on submission_supervisor are resolved from validated
+server-side master data. This keeps the normalized parent/area model while
+allowing reporting directly from the Supervisor worksheet. Historical rows are
+not migrated automatically and may remain blank until their submission is
+edited and saved.
+
+Legacy extra columns may remain physically present; they are ignored. No
+destructive sheet migration is performed by the application.
 
 ## User flow
 

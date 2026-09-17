@@ -79,6 +79,64 @@ describe('Phase 4 transaction row generation', () => {
     const records = buildTransactionRecords(input())
     expect(records.areas[0]?.jumlah_supervisor).toBe(2)
     expect(records.supervisors.map((row) => row.supervisor_no)).toEqual([1, 2])
+    expect(records.supervisors[0]).toMatchObject({
+      nama_distributor: 'DISTRIBUTOR KANONIK',
+      provinsi: 'ACEH',
+      area: 'Area 02',
+      nama_supervisor: 'Budi',
+      ktp_file_id: 'file_old_12345',
+      ktp_file_name: 'KTP_OLD.pdf',
+      ktp_file_url: 'https://drive.google.com/file/d/file_old_12345/view',
+    })
+  })
+
+  it('writes the correct reporting values for Supervisors in multiple Areas', () => {
+    const values = input()
+    values.wilayah.push({
+      province: { provinsiName: 'PAPUA' },
+      area: { areaName: 'Area 97' },
+      supervisors: [
+        {
+          namaSupervisor: 'Citra',
+          ktpSource: 'new',
+          ktp: {
+            fileId: 'file_papua_12345',
+            fileName: 'KTP_CITRA.pdf',
+            mimeType: 'application/pdf',
+            fileUrl: 'https://drive.google.com/file/d/file_papua_12345/view',
+          },
+        },
+      ],
+    })
+
+    const records = buildTransactionRecords(values)
+    expect(
+      records.supervisors.map((row) => ({
+        distributor: row.nama_distributor,
+        province: row.provinsi,
+        area: row.area,
+        supervisorNo: row.supervisor_no,
+      })),
+    ).toEqual([
+      {
+        distributor: 'DISTRIBUTOR KANONIK',
+        province: 'ACEH',
+        area: 'Area 02',
+        supervisorNo: 1,
+      },
+      {
+        distributor: 'DISTRIBUTOR KANONIK',
+        province: 'ACEH',
+        area: 'Area 02',
+        supervisorNo: 2,
+      },
+      {
+        distributor: 'DISTRIBUTOR KANONIK',
+        province: 'PAPUA',
+        area: 'Area 97',
+        supervisorNo: 1,
+      },
+    ])
   })
 
   it('does not write removed legacy columns', () => {
@@ -115,6 +173,36 @@ describe('Phase 4 transaction row generation', () => {
     expect(records.submission.updated_at).toBe(records.updatedAt)
     expect(records.areas[0]?.submission_area_id).toBe('AREA-OLD')
     expect(records.supervisors[0]?.supervisor_id).toBe('SPV-OLD')
+  })
+
+  it('rebuilds reporting values from the current validated Area on edit', () => {
+    const changed = input()
+    changed.distributor = {
+      namaDistributor: 'Distributor Kanonik',
+    }
+    changed.wilayah[0]!.province = { provinsiName: 'PAPUA' }
+    changed.wilayah[0]!.area = { areaName: 'Area 97' }
+
+    const records = buildTransactionRecords(changed, new Date(), stored)
+
+    expect(records.supervisors).toHaveLength(2)
+    expect(records.supervisors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          nama_distributor: 'Distributor Kanonik',
+          provinsi: 'PAPUA',
+          area: 'Area 97',
+        }),
+      ]),
+    )
+    expect(
+      records.supervisors.every(
+        (row) =>
+          row.nama_distributor === 'Distributor Kanonik' &&
+          row.provinsi === 'PAPUA' &&
+          row.area === 'Area 97',
+      ),
+    ).toBe(true)
   })
 
   it('schedules deleted old KTPs only after the replacement state is built', () => {

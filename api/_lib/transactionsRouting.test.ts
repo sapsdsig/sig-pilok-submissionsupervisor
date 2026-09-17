@@ -56,7 +56,7 @@ const headers = (sheet: string) =>
     ? ['submission_id', 'nama_distributor', 'created_at', 'updated_at']
     : sheet === 'submission_area'
       ? ['submission_area_id', 'submission_id', 'provinsi_name', 'area_name', 'jumlah_supervisor']
-      : ['supervisor_id', 'submission_id', 'submission_area_id', 'supervisor_no', 'nama_supervisor', 'ktp_file_id', 'ktp_file_name', 'ktp_file_url']
+      : ['supervisor_id', 'submission_id', 'submission_area_id', 'nama_distributor', 'provinsi', 'area', 'supervisor_no', 'nama_supervisor', 'ktp_file_id', 'ktp_file_name', 'ktp_file_url']
 
 describe('Phase 4 transaction spreadsheet routing', () => {
   beforeEach(() => {
