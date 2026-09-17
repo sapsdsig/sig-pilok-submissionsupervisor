@@ -31,7 +31,7 @@ export function FileUploadField(props: {
   }
 
   return (
-    <div>
+    <div className='w-full min-w-0 max-w-full'>
       <span className='field-label'>KTP Supervisor *</span>
       <input
         ref={inputRef}
@@ -51,13 +51,22 @@ export function FileUploadField(props: {
         }}
       />
       {file ? (
-        <div className='file-selected' tabIndex={-1} {...targetProps}>
-          <div className='flex min-w-0 items-center gap-3'>
+        <div
+          className='file-selected w-full min-w-0 max-w-full'
+          tabIndex={-1}
+          {...targetProps}
+        >
+          <div className='flex w-full min-w-0 max-w-full flex-1 items-center gap-3'>
             <span className='file-state-icon' aria-hidden='true'>
               <CheckIcon className='size-4' />
             </span>
-            <div className='min-w-0'>
-              <p className='truncate text-sm font-semibold'>{file.name}</p>
+            <div className='min-w-0 max-w-full flex-1'>
+              <p
+                className='block max-w-full truncate text-sm font-semibold'
+                title={file.name}
+              >
+                {file.name}
+              </p>
               <p className='text-xs text-slate-500'>
                 File baru · {(file.size / 1024).toFixed(0)} KB
               </p>
@@ -76,14 +85,23 @@ export function FileUploadField(props: {
           </div>
         </div>
       ) : existing ? (
-        <div className='file-selected' tabIndex={-1} {...targetProps}>
-          <div className='flex min-w-0 items-center gap-3'>
+        <div
+          className='file-selected w-full min-w-0 max-w-full'
+          tabIndex={-1}
+          {...targetProps}
+        >
+          <div className='flex w-full min-w-0 max-w-full flex-1 items-center gap-3'>
             <span className='file-state-icon' aria-hidden='true'>
               <CheckIcon className='size-4' />
             </span>
-            <div className='min-w-0'>
+            <div className='min-w-0 max-w-full flex-1'>
               <p className='text-xs text-slate-500'>KTP tersimpan</p>
-              <p className='truncate text-sm font-semibold'>{existing.fileName}</p>
+              <p
+                className='block max-w-full truncate text-sm font-semibold'
+                title={existing.fileName}
+              >
+                {existing.fileName}
+              </p>
             </div>
           </div>
           <div className='file-actions'>

@@ -109,13 +109,13 @@ export function WilayahCard(props: Props) {
   }
 
   return (
-    <article className='wilayah-card'>
-      <div className='flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6'>
-        <div>
+    <article className='wilayah-card w-full min-w-0 max-w-full'>
+      <div className='flex min-w-0 items-start justify-between gap-4 border-b border-slate-200 px-4 py-4 sm:px-6'>
+        <div className='min-w-0 flex-1'>
           <p className='text-xs font-bold uppercase tracking-wider text-sky-700'>
             Wilayah {props.index + 1}
           </p>
-          <h3 className='mt-1 text-lg font-semibold'>
+          <h3 className='mt-1 truncate text-lg font-semibold'>
             {provinceName && areaName
               ? `${provinceName} - ${areaName}`
               : 'Pilih Provinsi dan Area'}
@@ -123,7 +123,7 @@ export function WilayahCard(props: Props) {
         </div>
         <button
           type='button'
-          className='icon-button icon-button-danger disabled:opacity-30'
+          className='icon-button icon-button-danger shrink-0 disabled:opacity-30'
           disabled={!props.canRemove}
           onClick={props.onRemove}
           title={props.canRemove ? 'Hapus Wilayah' : 'Minimal satu Wilayah'}
@@ -132,9 +132,9 @@ export function WilayahCard(props: Props) {
         </button>
       </div>
 
-      <div className='space-y-6 p-5 sm:p-6'>
-        <div className='grid gap-5 md:grid-cols-2'>
-          <div>
+      <div className='min-w-0 space-y-6 p-4 sm:p-6'>
+        <div className='grid min-w-0 grid-cols-1 gap-5 md:grid-cols-2'>
+          <div className='min-w-0'>
             <label className='field-label' htmlFor={provinceId}>Provinsi *</label>
             <SearchableSelect
               inputId={provinceId}
@@ -153,7 +153,7 @@ export function WilayahCard(props: Props) {
             />
             <FieldError id={provinceErrorId} message={wilayahErrors?.provinsiName?.message} />
           </div>
-          <div>
+          <div className='min-w-0'>
             <label className='field-label' htmlFor={areaId}>Area *</label>
             <SearchableSelect
               inputId={areaId}
@@ -186,7 +186,7 @@ export function WilayahCard(props: Props) {
           </div>
         </div>
 
-        <div className='space-y-4 border-t border-slate-200 pt-6'>
+        <div className='min-w-0 space-y-4 border-t border-slate-200 pt-6'>
           {fields.map((field, supervisorIndex) => (
             <SupervisorFields
               key={field.id}
