@@ -23,6 +23,7 @@ import {
 } from './sheets.js'
 import type { ValidatedSubmission } from './submissionValidation.js'
 import { datePartFromRequestToken } from './requestToken.js'
+import { formatWibTimestamp } from './timestamps.js'
 
 export type TransactionRecords = {
   submissionId: string
@@ -61,7 +62,7 @@ export function buildTransactionRecords(
   now = new Date(),
   existing?: StoredSubmission,
 ): TransactionRecords {
-  const updatedAt = now.toISOString()
+  const updatedAt = formatWibTimestamp(now)
   const submissionId = existing?.submissionId ?? createSubmissionId(input.requestToken)
   const createdAt = existing?.createdAt ?? updatedAt
   const areas: WritableRecord[] = []
@@ -266,7 +267,7 @@ export async function hasStoredSubmission(
     (candidate) => candidate.record.submission_id === expectedId,
   )
   if (!row) return null
-  const createdAt = row.record.created_at || now.toISOString()
+  const createdAt = row.record.created_at || formatWibTimestamp(now)
   return {
     submissionId: expectedId,
     createdAt,

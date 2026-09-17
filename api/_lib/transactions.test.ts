@@ -89,6 +89,18 @@ describe('Phase 4 transaction row generation', () => {
     expect(records.areas[0]).not.toHaveProperty('area_ap')
   })
 
+  it('uses one WIB timestamp for created_at and updated_at on create', () => {
+    const records = buildTransactionRecords(
+      input(),
+      new Date('2026-09-17T03:36:55.376Z'),
+    )
+
+    expect(records.createdAt).toBe('2026-09-17 10:36:55')
+    expect(records.updatedAt).toBe(records.createdAt)
+    expect(records.submission.created_at).toBe(records.createdAt)
+    expect(records.submission.updated_at).toBe(records.updatedAt)
+  })
+
   it('preserves parent ID, created_at, and valid child IDs during edit', () => {
     const records = buildTransactionRecords(
       input(),
@@ -97,7 +109,10 @@ describe('Phase 4 transaction row generation', () => {
     )
     expect(records.submissionId).toBe('SUP-EXISTING')
     expect(records.createdAt).toBe(stored.createdAt)
-    expect(records.updatedAt).toBe('2026-09-16T10:00:00.000Z')
+    expect(records.updatedAt).toBe('2026-09-16 17:00:00')
+    expect(records.updatedAt).not.toBe(stored.updatedAt)
+    expect(records.submission.created_at).toBe(stored.createdAt)
+    expect(records.submission.updated_at).toBe(records.updatedAt)
     expect(records.areas[0]?.submission_area_id).toBe('AREA-OLD')
     expect(records.supervisors[0]?.supervisor_id).toBe('SPV-OLD')
   })
