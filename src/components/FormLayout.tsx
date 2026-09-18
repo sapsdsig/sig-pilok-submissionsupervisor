@@ -5,22 +5,34 @@ type BrandHeaderProps = {
   subtitle: string
   logoSrc?: string
   logoAlt?: string
+  pilokLogoSrc?: string
+  pilokLogoAlt?: string
 }
 
 export function BrandHeader({
   title,
   subtitle,
-  logoSrc = '/branding/sig-logo-black.png',
+  logoSrc = '/branding/sig-logo-red.svg',
   logoAlt = 'Logo SIG',
+  pilokLogoSrc = '/branding/pilok-logo-red.svg',
+  pilokLogoAlt = 'Logo PILOK',
 }: BrandHeaderProps) {
   return (
     <header className='brand-header'>
       <div className='brand-header-inner'>
-        <div className='brand-logo-frame'>
-          <img className='brand-logo-image' src={logoSrc} alt={logoAlt} />
+        <div className='brand-logo-group'>
+          <div className='brand-sig-logo-frame'>
+            <img className='brand-sig-logo-image' src={logoSrc} alt={logoAlt} />
+          </div>
+          <span className='brand-logo-divider' aria-hidden='true' />
+          <img
+            className='brand-pilok-logo-image'
+            src={pilokLogoSrc}
+            alt={pilokLogoAlt}
+          />
         </div>
         <div className='brand-title-block'>
-          <p className='brand-eyebrow'>PILOK · Form Operasional</p>
+          <p className='brand-eyebrow'>Form Operasional</p>
           <h1>{title}</h1>
           <p className='brand-subtitle'>{subtitle}</p>
         </div>
@@ -38,6 +50,8 @@ export function FormShell({
   subtitle,
   logoSrc,
   logoAlt,
+  pilokLogoSrc,
+  pilokLogoAlt,
   children,
 }: FormShellProps) {
   return (
@@ -47,6 +61,8 @@ export function FormShell({
         subtitle={subtitle}
         logoSrc={logoSrc}
         logoAlt={logoAlt}
+        pilokLogoSrc={pilokLogoSrc}
+        pilokLogoAlt={pilokLogoAlt}
       />
       <main className='form-container'>{children}</main>
     </div>

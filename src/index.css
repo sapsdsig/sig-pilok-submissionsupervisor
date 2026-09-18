@@ -47,22 +47,34 @@
   }
 
   .brand-header-inner {
-    @apply mx-auto flex max-w-5xl items-center gap-5 px-4 py-6 sm:gap-7 sm:px-6 sm:py-8;
+    @apply mx-auto flex max-w-5xl flex-col items-start gap-4 px-4 py-6 sm:flex-row sm:items-center sm:gap-7 sm:px-6 sm:py-8;
   }
 
-  .brand-logo-frame {
-    @apply relative h-14 w-24 shrink-0 overflow-hidden sm:h-16 sm:w-28;
+  .brand-logo-group {
+    @apply flex max-w-full shrink-0 items-center gap-3 sm:gap-4;
   }
 
-  .brand-logo-image {
+  .brand-sig-logo-frame {
+    @apply relative h-11 w-[4.8125rem] shrink-0 overflow-hidden sm:h-14 sm:w-24;
+  }
+
+  .brand-sig-logo-image {
     @apply absolute max-w-none;
     left: -73%;
     top: -71%;
     width: 245%;
   }
 
+  .brand-logo-divider {
+    @apply h-8 w-px shrink-0 bg-slate-200 sm:h-10;
+  }
+
+  .brand-pilok-logo-image {
+    @apply h-9 w-auto max-w-[7.5rem] shrink-0 object-contain sm:h-11 sm:max-w-[9rem];
+  }
+
   .brand-title-block {
-    @apply min-w-0 border-l border-slate-200 pl-5 sm:pl-7;
+    @apply min-w-0 max-w-full sm:border-l sm:border-slate-200 sm:pl-7;
   }
 
   .brand-eyebrow {
@@ -247,15 +259,7 @@
 
   @media (max-width: 479px) {
     .brand-header-inner {
-      @apply items-start gap-4 py-5;
-    }
-
-    .brand-logo-frame {
-      @apply mt-1 h-11 w-[4.8125rem];
-    }
-
-    .brand-title-block {
-      @apply pl-4;
+      @apply py-5;
     }
 
     .brand-title-block h1 {
