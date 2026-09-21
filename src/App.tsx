@@ -342,7 +342,7 @@ function App() {
   return (
     <FormShell
       title='PILOK - Supervisor'
-      subtitle='Form pendataan Supervisor Distributor dan wilayah operasional.'
+      subtitle='Pendataan Supervisor Distributor Berdasarkan Wilayah Operasional.'
     >
       {successResult ? (
         <SectionCard className='mx-auto max-w-2xl py-10 text-center sm:py-12'>
