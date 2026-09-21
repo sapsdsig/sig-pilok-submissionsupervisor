@@ -1,7 +1,11 @@
 import { useRef } from 'react'
 import { useController, useFormContext } from 'react-hook-form'
 import { KTP_FILE_ACCEPT, MAX_KTP_FILE_SIZE_LABEL } from '../constants/files'
-import type { ExistingKtp, SupervisorFormValues } from '../types/form'
+import {
+  cancelNewKtpSelection,
+  getExistingKtp,
+  type SupervisorFormValues,
+} from '../types/form'
 import { FieldError } from './FieldError'
 import { CheckIcon, TrashIcon, UploadIcon } from './icons'
 
@@ -15,8 +19,7 @@ export function FileUploadField(props: {
   const { field, fieldState } = useController({ control, name: props.name })
   const inputRef = useRef<HTMLInputElement>(null)
   const ktp = field.value
-  const existing: ExistingKtp | undefined =
-    ktp?.kind === 'existing' ? ktp : ktp?.previous
+  const existing = getExistingKtp(ktp)
   const file = ktp?.kind === 'new' ? ktp.file : undefined
   const errorId = `${props.inputId}-error`
   const targetProps = {
@@ -26,7 +29,7 @@ export function FileUploadField(props: {
   }
 
   const clearNewFile = () => {
-    field.onChange(existing ?? null)
+    field.onChange(cancelNewKtpSelection(ktp))
     if (inputRef.current) inputRef.current.value = ''
   }
 
@@ -95,17 +98,10 @@ export function FileUploadField(props: {
               <CheckIcon className='size-4' />
             </span>
             <div className='min-w-0 max-w-full flex-1'>
-              <p className='text-xs text-slate-500'>KTP tersimpan</p>
-              <p
-                className='block max-w-full truncate text-sm font-semibold'
-                title={existing.fileName}
-              >
-                {existing.fileName}
-              </p>
+              <p className='text-sm font-semibold'>KTP tersimpan</p>
             </div>
           </div>
           <div className='file-actions'>
-            <a className='button-text' href={existing.fileUrl} target='_blank' rel='noreferrer'>Lihat File</a>
             <label htmlFor={props.inputId} className='button-text'>Ganti KTP</label>
           </div>
         </div>

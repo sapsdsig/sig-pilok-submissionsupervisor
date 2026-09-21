@@ -28,7 +28,7 @@ describe('new KTP failure cleanup safety', () => {
       requestToken: '20260915_123e4567-e89b-42d3-a456-426614174000',
       wilayah: [{
         supervisors: [
-          { ktp: { kind: 'existing', fileId: 'file_existing_12345' } },
+          { ktp: { kind: 'existing' } },
           { ktp: { kind: 'new', fileId: 'file_new_123456789' } },
         ],
       }],

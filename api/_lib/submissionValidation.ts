@@ -1,8 +1,5 @@
 import { z } from 'zod'
-import type {
-  StoredSubmission,
-  UploadedKtp,
-} from '../../src/types/api.js'
+import type { UploadedKtp } from '../../src/types/api.js'
 import type {
   AreaOption,
   Distributor,
@@ -20,6 +17,7 @@ import {
   normalizeMasterName,
 } from './masterData.js'
 import { requestTokenSchema } from './requestToken.js'
+import type { PersistedSubmission } from './transactionTypes.js'
 
 const safeId = z.string().trim().min(1).max(200).regex(/^[A-Za-z0-9_-]+$/)
 const driveFileId = safeId.min(10)
@@ -37,7 +35,6 @@ const uploadedKtpSchema = z
 const existingKtpSchema = z
   .object({
     kind: z.literal('existing'),
-    fileId: driveFileId,
   })
   .strict()
 
@@ -114,7 +111,7 @@ function validateUniqueValues(
 
 export async function validateAndNormalizeSubmission(
   rawInput: unknown,
-  existing: StoredSubmission | null,
+  existing: PersistedSubmission | null,
   dependencies: SubmissionValidationDependencies = defaultDependencies,
 ): Promise<ValidatedSubmission> {
   const parsed = submissionSchema.safeParse(rawInput)
@@ -135,7 +132,9 @@ export async function validateAndNormalizeSubmission(
   )
   validateUniqueValues(
     parsed.data.wilayah.flatMap((area) =>
-      area.supervisors.map((supervisor) => supervisor.ktp.fileId),
+      area.supervisors.flatMap((supervisor) =>
+        supervisor.ktp.kind === 'new' ? [supervisor.ktp.fileId] : [],
+      ),
     ),
     'Satu file KTP tidak boleh digunakan untuk lebih dari satu Supervisor.',
   )
@@ -223,7 +222,7 @@ export async function validateAndNormalizeSubmission(
 
           let verifiedKtp: UploadedKtp
           if (supervisor.ktp.kind === 'existing') {
-            if (!stored || stored.supervisor.ktp.fileId !== supervisor.ktp.fileId) {
+            if (!stored) {
               throw new ApiError(
                 400,
                 'KTP_INVALID',
@@ -231,7 +230,7 @@ export async function validateAndNormalizeSubmission(
               )
             }
             verifiedKtp = await dependencies.verifyExistingKtp(
-              supervisor.ktp.fileId,
+              stored.supervisor.ktp.fileId,
               stored.supervisor.ktp,
             )
           } else {
@@ -276,6 +275,13 @@ export async function validateAndNormalizeSubmission(
     }),
   )
 
+  validateUniqueValues(
+    wilayah.flatMap((area) =>
+      area.supervisors.map((supervisor) => supervisor.ktp.fileId),
+    ),
+    'Satu file KTP tidak boleh digunakan untuk lebih dari satu Supervisor.',
+  )
+
   return {
     requestToken: parsed.data.requestToken,
     distributor,
@@ -292,7 +298,7 @@ const cleanupEnvelopeSchema = z
           z.object({
             ktp: z.discriminatedUnion('kind', [
               z.object({ kind: z.literal('new'), fileId: driveFileId }).passthrough(),
-              z.object({ kind: z.literal('existing'), fileId: driveFileId }).passthrough(),
+              z.object({ kind: z.literal('existing') }).passthrough(),
             ]),
           }).passthrough(),
         ),
@@ -310,9 +316,9 @@ export function extractCleanupCandidates(rawInput: unknown): {
   return {
     requestToken: parsed.data.requestToken,
     fileIds: parsed.data.wilayah.flatMap((area) =>
-      area.supervisors
-        .filter((supervisor) => supervisor.ktp.kind === 'new')
-        .map((supervisor) => supervisor.ktp.fileId),
+      area.supervisors.flatMap((supervisor) =>
+        supervisor.ktp.kind === 'new' ? [supervisor.ktp.fileId] : [],
+      ),
     ),
   }
 }

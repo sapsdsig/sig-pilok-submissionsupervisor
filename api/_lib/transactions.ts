@@ -24,6 +24,7 @@ import {
 import type { ValidatedSubmission } from './submissionValidation.js'
 import { datePartFromRequestToken } from './requestToken.js'
 import { formatWibTimestamp } from './timestamps.js'
+import type { PersistedSubmission } from './transactionTypes.js'
 
 export type TransactionRecords = {
   submissionId: string
@@ -60,7 +61,7 @@ const createChildId = (prefix: 'AREA' | 'SPV') =>
 export function buildTransactionRecords(
   input: ValidatedSubmission,
   now = new Date(),
-  existing?: StoredSubmission,
+  existing?: PersistedSubmission,
 ): TransactionRecords {
   const updatedAt = formatWibTimestamp(now)
   const submissionId = existing?.submissionId ?? createSubmissionId(input.requestToken)
@@ -137,7 +138,7 @@ function reconstructSubmission(
   parent: SheetTable['rows'][number],
   areaTable: SheetTable,
   supervisorTable: SheetTable,
-): StoredSubmission {
+): PersistedSubmission {
   const submissionId = parent.record.submission_id ?? ''
   const areaRows = areaTable.rows.filter(
     (row) => row.record.submission_id === submissionId,
@@ -209,6 +210,27 @@ function reconstructSubmission(
   }
 }
 
+export function toStoredSubmissionResponse(
+  persisted: PersistedSubmission,
+): StoredSubmission {
+  return {
+    submissionId: persisted.submissionId,
+    namaDistributor: persisted.namaDistributor,
+    createdAt: persisted.createdAt,
+    updatedAt: persisted.updatedAt,
+    wilayah: persisted.wilayah.map((area) => ({
+      submissionAreaId: area.submissionAreaId,
+      provinsiName: area.provinsiName,
+      areaName: area.areaName,
+      supervisors: area.supervisors.map((supervisor) => ({
+        supervisorId: supervisor.supervisorId,
+        namaSupervisor: supervisor.namaSupervisor,
+        ktp: { kind: 'existing' },
+      })),
+    })),
+  }
+}
+
 export async function findStoredSubmissionByDistributor(
   namaDistributor: string,
 ): Promise<StoredSubmission | null> {
@@ -231,13 +253,15 @@ export async function findStoredSubmissionByDistributor(
     )
   }
   return matches[0]
-    ? reconstructSubmission(matches[0], areaTable, supervisorTable)
+    ? toStoredSubmissionResponse(
+        reconstructSubmission(matches[0], areaTable, supervisorTable),
+      )
     : null
 }
 
 export async function getStoredSubmissionById(
   submissionId: string,
-): Promise<StoredSubmission> {
+): Promise<PersistedSubmission> {
   const { submissionTable, areaTable, supervisorTable } =
     await readTransactionTables()
   const matches = submissionTable.rows.filter(
@@ -441,7 +465,7 @@ function parentUpdateRequests(
 }
 
 function recordsMatchStored(
-  stored: StoredSubmission,
+  stored: PersistedSubmission,
   records: TransactionRecords,
 ): boolean {
   const actualAreas = stored.wilayah.map((area) => ({
@@ -482,7 +506,7 @@ export type UpdateSubmissionResult = {
 }
 
 export function deriveOldFileIdsToCleanup(
-  existing: StoredSubmission,
+  existing: PersistedSubmission,
   records: TransactionRecords,
 ): string[] {
   const newFileIds = new Set(
@@ -497,7 +521,7 @@ export function deriveOldFileIdsToCleanup(
 
 export async function updateSubmission(
   input: ValidatedSubmission,
-  expectedExisting: StoredSubmission,
+  expectedExisting: PersistedSubmission,
   now = new Date(),
 ): Promise<UpdateSubmissionResult> {
   let tables: Awaited<ReturnType<typeof readTransactionTables>>

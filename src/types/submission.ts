@@ -31,7 +31,7 @@ export type DevelopmentSubmission = Omit<NormalizedSubmission, 'wilayah'> & {
     Omit<NormalizedSubmissionArea, 'supervisors'> & {
       supervisors: Array<
         Omit<NormalizedSupervisor, 'ktp'> & {
-          ktp: SafeFileMetadata | { fileId: string; fileName: string }
+          ktp: SafeFileMetadata | { kind: 'existing' } | null
         }
       >
     }

@@ -1,8 +1,5 @@
-import type { UploadedKtp } from './api'
-
-export type ExistingKtp = Omit<UploadedKtp, 'mimeType'> & {
+export type ExistingKtp = {
   kind: 'existing'
-  mimeType?: string
 }
 
 export type NewKtp = {
@@ -12,6 +9,14 @@ export type NewKtp = {
 }
 
 export type KtpState = ExistingKtp | NewKtp | null
+
+export const getExistingKtp = (
+  ktp: KtpState,
+): ExistingKtp | undefined =>
+  ktp?.kind === 'existing' ? ktp : ktp?.previous
+
+export const cancelNewKtpSelection = (ktp: KtpState): KtpState =>
+  ktp?.kind === 'new' ? ktp.previous ?? null : ktp
 
 export type SupervisorEntry = {
   supervisorId?: string

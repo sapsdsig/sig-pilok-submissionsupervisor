@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { StoredSubmission } from '../../src/types/api.js'
 import type { ValidatedSubmission } from './submissionValidation.js'
+import type { PersistedSubmission } from './transactionTypes.js'
 
 const mocks = vi.hoisted(() => ({
   readSheetTable: vi.fn(),
@@ -111,7 +111,7 @@ describe('Phase 4 transaction spreadsheet routing', () => {
   })
 
   it('replaces edit child state through one atomic batchUpdate', async () => {
-    const existing: StoredSubmission = {
+    const existing: PersistedSubmission = {
       submissionId: 'SUP-EXISTING',
       namaDistributor: 'DISTRIBUTOR',
       createdAt: '2026-09-01T00:00:00.000Z',

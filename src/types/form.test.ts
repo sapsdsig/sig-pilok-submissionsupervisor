@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   addSupervisor,
+  cancelNewKtpSelection,
   createEmptyWilayah,
   removeSupervisor,
 } from './form'
@@ -31,5 +32,20 @@ describe('Supervisor card state helpers', () => {
   it('never removes the final Supervisor', () => {
     const supervisors = createEmptyWilayah().supervisors
     expect(removeSupervisor(supervisors, 0)).toHaveLength(1)
+  })
+
+  it('cancels a local replacement back to the private existing-KTP state', () => {
+    const previous = { kind: 'existing' as const }
+    const replacement = {
+      kind: 'new' as const,
+      file: new File(['replacement'], 'ktp-baru.pdf', {
+        type: 'application/pdf',
+      }),
+      previous,
+    }
+
+    expect(cancelNewKtpSelection(replacement)).toEqual(previous)
+    expect(cancelNewKtpSelection(replacement)).not.toHaveProperty('fileId')
+    expect(cancelNewKtpSelection(replacement)).not.toHaveProperty('fileUrl')
   })
 })

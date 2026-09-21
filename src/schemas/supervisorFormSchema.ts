@@ -27,15 +27,7 @@ const ktpStateSchema = z
   )
   .superRefine((ktp, context) => {
     if (!ktp) return
-    if (ktp.kind === 'existing') {
-      if (!ktp.fileId || !ktp.fileName || !ktp.fileUrl) {
-        context.addIssue({
-          code: 'custom',
-          message: 'Referensi KTP tersimpan tidak valid.',
-        })
-      }
-      return
-    }
+    if (ktp.kind === 'existing') return
     if (!isFileObject(ktp.file)) {
       context.addIssue({
         code: 'custom',

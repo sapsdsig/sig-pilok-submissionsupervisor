@@ -39,9 +39,6 @@ describe('Phase 4 frontend form schema', () => {
     const values = valid()
     values.wilayah[0]!.supervisors[0]!.ktp = {
       kind: 'existing',
-      fileId: 'file_123456789',
-      fileName: 'KTP_BUDI.pdf',
-      fileUrl: 'https://drive.google.com/file/d/file_123456789/view',
     }
     expect(schema.safeParse(values).success).toBe(true)
   })

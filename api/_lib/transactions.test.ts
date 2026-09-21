@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { StoredSubmission } from '../../src/types/api.js'
 import type { ValidatedSubmission } from './submissionValidation.js'
+import type { PersistedSubmission } from './transactionTypes.js'
 import {
   buildTransactionRecords,
   deriveOldFileIdsToCleanup,
@@ -40,7 +40,7 @@ const input = (): ValidatedSubmission => ({
     },
   ],
 })
-const stored: StoredSubmission = {
+const stored: PersistedSubmission = {
   submissionId: 'SUP-EXISTING',
   namaDistributor: 'DISTRIBUTOR KANONIK',
   createdAt: '2026-09-01T00:00:00.000Z',

@@ -13,7 +13,10 @@ vi.mock('./sheets.js', () => ({
   readSheetTable: read,
 }))
 
-import { findStoredSubmissionByDistributor } from './transactions.js'
+import {
+  findStoredSubmissionByDistributor,
+  getStoredSubmissionById,
+} from './transactions.js'
 
 const table = (sheet: string, parentCount = 1) => ({
   headers: [],
@@ -60,15 +63,41 @@ describe('existing submission reconstruction', () => {
   })
 
   it('reconstructs normalized rows into the editable nested form', async () => {
-    await expect(
-      findStoredSubmissionByDistributor('distributor'),
-    ).resolves.toMatchObject({
+    const response = await findStoredSubmissionByDistributor('distributor')
+
+    expect(response).toMatchObject({
       submissionId: 'SUP-0',
       wilayah: [{
         submissionAreaId: 'AREA-1',
         supervisors: [{
           supervisorId: 'SPV-1',
-          ktp: { fileId: 'file_123456789' },
+          ktp: { kind: 'existing' },
+        }],
+      }],
+    })
+    const serialized = JSON.stringify(response)
+    expect(serialized).not.toContain('ktp_file_url')
+    expect(serialized).not.toContain('fileUrl')
+    expect(serialized).not.toContain('webViewLink')
+    expect(serialized).not.toContain('ktp_file_id')
+    expect(serialized).not.toContain('fileId')
+    expect(serialized).not.toContain('KTP_BUDI.pdf')
+    expect(serialized).not.toContain('drive.google.com')
+  })
+
+  it('keeps stored KTP metadata available only to backend update logic', async () => {
+    await expect(getStoredSubmissionById('SUP-0')).resolves.toMatchObject({
+      submissionId: 'SUP-0',
+      wilayah: [{
+        submissionAreaId: 'AREA-1',
+        supervisors: [{
+          supervisorId: 'SPV-1',
+          ktp: {
+            fileId: 'file_123456789',
+            fileName: 'KTP_BUDI.pdf',
+            fileUrl:
+              'https://drive.google.com/file/d/file_123456789/view',
+          },
         }],
       }],
     })

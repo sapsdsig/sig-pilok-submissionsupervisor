@@ -1,12 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import type {
-  StoredSubmission,
-  SubmissionRequest,
-} from '../../src/types/api.js'
+import type { SubmissionRequest } from '../../src/types/api.js'
 import {
   validateAndNormalizeSubmission,
   type SubmissionValidationDependencies,
 } from './submissionValidation.js'
+import type { PersistedSubmission } from './transactionTypes.js'
 
 const uploaded = {
   fileId: 'file_123456789',
@@ -38,7 +36,7 @@ const dependencies = (): SubmissionValidationDependencies => ({
   verifyNewKtp: vi.fn(async () => uploaded),
   verifyExistingKtp: vi.fn(async () => uploaded),
 })
-const stored: StoredSubmission = {
+const stored: PersistedSubmission = {
   submissionId: 'SUP-EXISTING',
   namaDistributor: 'DISTRIBUTOR CANONICAL',
   createdAt: '2026-09-15T00:00:00.000Z',
@@ -91,7 +89,6 @@ describe('Phase 4 backend submission validation', () => {
     const input = payload()
     input.wilayah[0]!.supervisors[0]!.ktp = {
       kind: 'existing',
-      fileId: uploaded.fileId,
     }
     await expect(
       validateAndNormalizeSubmission(input, null, dependencies()),
@@ -108,7 +105,7 @@ describe('Phase 4 backend submission validation', () => {
         {
           supervisorId: 'SPV-OLD',
           namaSupervisor: 'Budi Baru',
-          ktp: { kind: 'existing', fileId: uploaded.fileId },
+          ktp: { kind: 'existing' },
         },
       ],
     }
@@ -118,7 +115,41 @@ describe('Phase 4 backend submission validation', () => {
     ).resolves.toMatchObject({
       wilayah: [{ supervisors: [{ ktpSource: 'existing' }] }],
     })
-    expect(deps.verifyExistingKtp).toHaveBeenCalledOnce()
+    expect(deps.verifyExistingKtp).toHaveBeenCalledWith(
+      uploaded.fileId,
+      stored.wilayah[0]!.supervisors[0]!.ktp,
+    )
+  })
+
+  it('rejects duplicate KTP files after server-side resolution', async () => {
+    const persisted = structuredClone(stored)
+    persisted.wilayah[0]!.supervisors.push({
+      supervisorId: 'SPV-TWO',
+      namaSupervisor: 'Ani',
+      ktp: { ...uploaded },
+    })
+    const input = payload()
+    input.wilayah[0] = {
+      submissionAreaId: 'AREA-OLD',
+      provinsiName: 'ACEH',
+      areaName: 'Area 02',
+      supervisors: [
+        {
+          supervisorId: 'SPV-OLD',
+          namaSupervisor: 'Budi',
+          ktp: { kind: 'existing' },
+        },
+        {
+          supervisorId: 'SPV-TWO',
+          namaSupervisor: 'Ani',
+          ktp: { kind: 'existing' },
+        },
+      ],
+    }
+
+    await expect(
+      validateAndNormalizeSubmission(input, persisted, dependencies()),
+    ).rejects.toMatchObject({ code: 'SUBMISSION_INVALID' })
   })
 
   it('rejects arbitrary child IDs', async () => {
@@ -129,7 +160,7 @@ describe('Phase 4 backend submission validation', () => {
     ).rejects.toMatchObject({ code: 'SUBMISSION_INVALID' })
   })
 
-  it('rejects a stored KTP attached to another Supervisor', async () => {
+  it('rejects client-provided metadata for a stored KTP', async () => {
     const input = payload()
     input.wilayah[0] = {
       submissionAreaId: 'AREA-OLD',
@@ -139,12 +170,15 @@ describe('Phase 4 backend submission validation', () => {
         {
           supervisorId: 'SPV-OLD',
           namaSupervisor: 'Budi',
-          ktp: { kind: 'existing', fileId: 'file_999999999' },
+          ktp: Object.assign(
+            { kind: 'existing' as const },
+            { fileId: 'file_999999999' },
+          ),
         },
       ],
     }
     await expect(
       validateAndNormalizeSubmission(input, stored, dependencies()),
-    ).rejects.toMatchObject({ code: 'KTP_INVALID' })
+    ).rejects.toMatchObject({ code: 'SUBMISSION_INVALID' })
   })
 })

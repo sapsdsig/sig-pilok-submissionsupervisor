@@ -39,10 +39,9 @@ export const toDevelopmentSubmission = (
               type: supervisor.ktp.file.type,
               size: supervisor.ktp.file.size,
             }
-          : {
-              fileId: supervisor.ktp?.fileId ?? '',
-              fileName: supervisor.ktp?.fileName ?? '',
-            },
+          : supervisor.ktp?.kind === 'existing'
+            ? { kind: 'existing' as const }
+            : null,
     })),
   })),
 })

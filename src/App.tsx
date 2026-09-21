@@ -73,7 +73,7 @@ const storedToForm = (stored: StoredSubmission): SupervisorFormValues => ({
     supervisors: area.supervisors.map((supervisor) => ({
       supervisorId: supervisor.supervisorId,
       namaSupervisor: supervisor.namaSupervisor,
-      ktp: { kind: 'existing' as const, ...supervisor.ktp },
+      ktp: { kind: 'existing' as const },
     })),
   })),
 })
@@ -229,10 +229,7 @@ function App() {
             supervisors.push({
               supervisorId: supervisor.supervisorId,
               namaSupervisor: supervisor.namaSupervisor,
-              ktp: {
-                kind: 'existing',
-                fileId: supervisor.ktp.fileId,
-              },
+              ktp: { kind: 'existing' },
             })
             continue
           }

@@ -22,9 +22,43 @@ function ExistingKtpHarness() {
               namaSupervisor: longSupervisorName,
               ktp: {
                 kind: 'existing',
-                fileId: 'file_123456789',
-                fileName: longFileName,
-                fileUrl: 'https://drive.google.com/file/d/file_123456789/view',
+              },
+            },
+          ],
+        },
+      ],
+    },
+  })
+
+  return (
+    <FormProvider {...methods}>
+      <SupervisorFields
+        wilayahIndex={0}
+        supervisorIndex={0}
+        canRemove
+        onRemove={vi.fn()}
+      />
+    </FormProvider>
+  )
+}
+
+function NewKtpHarness() {
+  const methods = useForm<SupervisorFormValues>({
+    defaultValues: {
+      namaDistributor: 'ABADI PUTERA',
+      wilayah: [
+        {
+          provinsiName: 'ACEH',
+          areaName: 'Area 01',
+          supervisors: [
+            {
+              namaSupervisor: longSupervisorName,
+              ktp: {
+                kind: 'new',
+                file: new File(['replacement'], longFileName, {
+                  type: 'application/pdf',
+                }),
+                previous: { kind: 'existing' },
               },
             },
           ],
@@ -62,16 +96,26 @@ describe('SupervisorFields mobile width safety', () => {
     )
   })
 
-  it('constrains and truncates a long existing KTP filename', () => {
-    const quote = String.fromCharCode(34)
+  it('shows only replacement state for an existing KTP', () => {
     const html = renderToString(<ExistingKtpHarness />)
 
     expect(html).toContain('file-selected w-full min-w-0 max-w-full')
-    expect(html).toContain('block max-w-full truncate')
-    expect(html).toContain(`title=${quote}${longFileName}${quote}`)
     expect(html).toContain('file-actions')
     expect(html).toContain('KTP tersimpan')
-    expect(html).toContain('Lihat File')
     expect(html).toContain('Ganti KTP')
+    expect(html).not.toContain('Lihat File')
+    expect(html).not.toContain(longFileName)
+    expect(html).not.toContain('drive.google.com')
+    expect(html).not.toContain('target=')
+  })
+
+  it('shows and truncates only the newly selected local filename', () => {
+    const quote = String.fromCharCode(34)
+    const html = renderToString(<NewKtpHarness />)
+
+    expect(html).toContain('block max-w-full truncate')
+    expect(html).toContain(`title=${quote}${longFileName}${quote}`)
+    expect(html).toContain(longFileName)
+    expect(html).not.toContain('Lihat File')
   })
 })

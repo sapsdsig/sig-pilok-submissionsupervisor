@@ -27,7 +27,6 @@ export type KtpUploadSessionResponse = {
 
 export type ExistingKtpReference = {
   kind: 'existing'
-  fileId: string
 }
 
 export type NewUploadedKtp = UploadedKtp & {
@@ -59,7 +58,7 @@ export type SubmissionResult = {
 export type StoredSupervisor = {
   supervisorId: string
   namaSupervisor: string
-  ktp: Omit<UploadedKtp, 'mimeType'> & { mimeType?: string }
+  ktp: ExistingKtpReference
 }
 
 export type StoredWilayah = {
