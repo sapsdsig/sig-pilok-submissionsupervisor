@@ -24,22 +24,12 @@ export function getGoogleOAuthConfig() {
   }
 }
 
-export function getMasterDistributorSheetConfig() {
+export function getMasterSupervisorSheetConfig() {
   return {
-    spreadsheetId: required('GOOGLE_MASTER_DISTRIBUTOR_SPREADSHEET_ID'),
+    spreadsheetId: required('GOOGLE_MASTER_SUPERVISOR_SPREADSHEET_ID'),
     sheetName: optional(
-      'GOOGLE_MASTER_DISTRIBUTOR_SHEET_NAME',
-      'master_distributor',
-    ),
-  }
-}
-
-export function getProvinceAreaSheetConfig() {
-  return {
-    spreadsheetId: required('GOOGLE_PROVINSI_AREA_SPREADSHEET_ID'),
-    sheetName: optional(
-      'GOOGLE_PROVINCE_AREA_SHEET_NAME',
-      'provinsi_area',
+      'GOOGLE_MASTER_SUPERVISOR_SHEET_NAME',
+      'master_supervisor',
     ),
   }
 }

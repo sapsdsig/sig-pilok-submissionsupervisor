@@ -34,8 +34,7 @@ sebelum membuat pola baru.
 
 - Major section memakai SectionCard dan SectionHeader; step badge hanya untuk
   urutan utama.
-- Nested entity memakai panel yang lebih ringan, seperti wilayah-card dan
-  supervisor-panel.
+- Entitas berulang memakai panel yang lebih ringan, seperti supervisor-panel.
 - Field memakai tinggi 44 px, radius 8 px, label di atas, helper/error tepat di
   bawah, dan focus ring yang terlihat.
 - Gunakan SearchableSelect untuk master data. Nilai terpilih harus jelas,

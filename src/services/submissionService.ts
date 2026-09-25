@@ -1,52 +1,29 @@
-import type {
-  SubmissionLookupResponse,
-  SubmissionRequest,
-  SubmissionResult,
-} from '../types/api'
+import type { SubmissionLookupResponse, SubmissionRequest, SubmissionResult } from '../types/api'
 import { fetchJson } from './apiClient'
 
 type SubmissionEnvelope = { submission: SubmissionResult }
 
 export interface SubmissionService {
-  findByDistributor(namaDistributor: string): Promise<SubmissionLookupResponse>
+  findByDistributorAp(namaDistributor: string, ap: string): Promise<SubmissionLookupResponse>
   create(payload: SubmissionRequest): Promise<SubmissionResult>
-  update(
-    submissionId: string,
-    payload: SubmissionRequest,
-  ): Promise<SubmissionResult>
+  update(submissionId: string, payload: SubmissionRequest): Promise<SubmissionResult>
 }
 
 class ApiSubmissionService implements SubmissionService {
-  findByDistributor(
-    namaDistributor: string,
-  ): Promise<SubmissionLookupResponse> {
+  findByDistributorAp(namaDistributor: string, ap: string): Promise<SubmissionLookupResponse> {
     return fetchJson(
-      `/api/submissions/by-distributor?namaDistributor=${encodeURIComponent(namaDistributor)}`,
+      `/api/submissions/by-distributor-ap?namaDistributor=${encodeURIComponent(namaDistributor)}&ap=${encodeURIComponent(ap)}`,
     )
   }
-
   async create(payload: SubmissionRequest): Promise<SubmissionResult> {
-    const result = await fetchJson<SubmissionEnvelope>('/api/submissions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    return result.submission
+    return (await fetchJson<SubmissionEnvelope>('/api/submissions', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    })).submission
   }
-
-  async update(
-    submissionId: string,
-    payload: SubmissionRequest,
-  ): Promise<SubmissionResult> {
-    const result = await fetchJson<SubmissionEnvelope>(
-      `/api/submissions/${encodeURIComponent(submissionId)}`,
-      {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      },
-    )
-    return result.submission
+  async update(submissionId: string, payload: SubmissionRequest): Promise<SubmissionResult> {
+    return (await fetchJson<SubmissionEnvelope>(`/api/submissions/${encodeURIComponent(submissionId)}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    })).submission
   }
 }
 

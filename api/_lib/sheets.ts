@@ -175,9 +175,11 @@ export async function appendTablesAtomically(
           sheetId: table.sheetId,
           fields: 'userEnteredValue',
           rows: table.records.map((record) => ({
-            values: table.headers.map((header) => ({
-              userEnteredValue: toExtendedValue(record[header]),
-            })),
+            values: table.headers.map((header) =>
+              Object.prototype.hasOwnProperty.call(record, header)
+                ? { userEnteredValue: toExtendedValue(record[header]) }
+                : {},
+            ),
           })),
         },
       })),

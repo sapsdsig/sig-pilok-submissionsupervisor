@@ -1,92 +1,33 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  loadDistributorMaster,
-  loadRegionMaster,
-  normalizeMasterName,
-  parseDistributorMaster,
-  parseRegionMaster,
-} from './masterData.js'
-import {
-  MASTER_DISTRIBUTOR_HEADERS,
-  PROVINCE_AREA_HEADERS,
-} from './sheetHeaders.js'
+import { extractApOptions, extractDistributors, loadSupervisorMaster, parseSupervisorMaster } from './masterData.js'
+import { MASTER_SUPERVISOR_HEADERS } from './sheetHeaders.js'
 import { parseSheetValues } from './sheets.js'
 
-describe('Phase 4 Google master parsers', () => {
+const table = (rows: string[][]) => parseSheetValues('master_supervisor', [
+  [...MASTER_SUPERVISOR_HEADERS], ...rows,
+], MASTER_SUPERVISOR_HEADERS)
+
+describe('master_supervisor parsing', () => {
   afterEach(() => vi.unstubAllEnvs())
-
-  it('parses name-only Distributor rows and ignores blanks', () => {
-    const table = parseSheetValues(
-      'master_distributor',
-      [['Nama Distributor'], [' DISTRIBUTOR A '], ['']],
-      MASTER_DISTRIBUTOR_HEADERS,
-    )
-    expect(parseDistributorMaster(table)).toEqual([
-      { namaDistributor: 'DISTRIBUTOR A' },
-    ])
+  it('extracts distinct Distributor and AP options canonically', () => {
+    const rows = parseSupervisorMaster(table([
+      ['Supervisor AP1 SP', 'VENDOR A', 'ANI', '1001'],
+      ['Supervisor AP2 SP', 'VENDOR A', 'BUDI', '1002'],
+      ['Supervisor AP1 SP', 'VENDOR B', 'CICI', '1003'],
+    ]))
+    expect(extractDistributors(rows)).toEqual([{ namaDistributor: 'VENDOR A' }, { namaDistributor: 'VENDOR B' }])
+    expect(extractApOptions(rows, 'vendor a')).toEqual([{ ap: 'Supervisor AP1 SP' }, { ap: 'Supervisor AP2 SP' }])
   })
-
-  it('detects duplicate normalized Distributor names', () => {
-    const table = parseSheetValues(
-      'master_distributor',
-      [['Nama Distributor'], ['Distributor A'], [' distributor a ']],
-      MASTER_DISTRIBUTOR_HEADERS,
-    )
-    expect(() => parseDistributorMaster(table)).toThrow(
-      'Nama Distributor duplikat',
-    )
+  it('rejects blank rows, duplicate identities, conflicting names, and conflicting ID mappings', () => {
+    expect(() => parseSupervisorMaster(table([['AP', 'VENDOR', '', '1']]))).toThrow('tidak lengkap')
+    expect(() => parseSupervisorMaster(table([['AP', 'VENDOR', 'ANI', '1'], ['AP', 'VENDOR', 'ANI', '1']]))).toThrow('duplikat')
+    expect(() => parseSupervisorMaster(table([['AP', 'VENDOR', 'ANI', '1'], ['AP', 'VENDOR', 'BUDI', '1']]))).toThrow('Fullname bertentangan')
+    expect(() => parseSupervisorMaster(table([['AP', 'VENDOR', 'ANI', '1'], ['AP2', 'VENDOR', 'ANI', '1']]))).toThrow('identitas berbeda')
   })
-
-  it('normalizes case-insensitive search keys without changing display data', () => {
-    expect(normalizeMasterName(' cendrawasih ')).toBe('CENDRAWASIH')
-  })
-
-  it('parses and deduplicates Province and Area names', () => {
-    const table = parseSheetValues(
-      'provinsi_area',
-      [
-        ['Provinsi Name', 'Area Name'],
-        ['ACEH', 'Area 02'],
-        ['ACEH', 'Area 02'],
-        ['PAPUA', 'Area 97'],
-      ],
-      PROVINCE_AREA_HEADERS,
-    )
-    const result = parseRegionMaster(table)
-    expect(result.provinces).toEqual([
-      { provinsiName: 'ACEH' },
-      { provinsiName: 'PAPUA' },
-    ])
-    expect(result.areasByProvince.get('ACEH')).toEqual([
-      { areaName: 'Area 02' },
-    ])
-  })
-
-  it('uses the dedicated Distributor spreadsheet', async () => {
-    vi.stubEnv('GOOGLE_MASTER_DISTRIBUTOR_SPREADSHEET_ID', 'distributor-file')
-    const read = vi.fn(async () => ({
-      headers: [...MASTER_DISTRIBUTOR_HEADERS],
-      rows: [],
-    }))
-    await loadDistributorMaster(read)
-    expect(read).toHaveBeenCalledWith(
-      'distributor-file',
-      'master_distributor',
-      ['Nama Distributor'],
-    )
-  })
-
-  it('uses the dedicated Province/Area spreadsheet', async () => {
-    vi.stubEnv('GOOGLE_PROVINSI_AREA_SPREADSHEET_ID', 'region-file')
-    const read = vi.fn(async () => ({
-      headers: [...PROVINCE_AREA_HEADERS],
-      rows: [],
-    }))
-    await loadRegionMaster(read)
-    expect(read).toHaveBeenCalledWith(
-      'region-file',
-      'provinsi_area',
-      ['Provinsi Name', 'Area Name'],
-    )
+  it('uses the standalone master spreadsheet', async () => {
+    vi.stubEnv('GOOGLE_MASTER_SUPERVISOR_SPREADSHEET_ID', 'master-file')
+    const read = vi.fn(async () => ({ headers: [...MASTER_SUPERVISOR_HEADERS], rows: [] }))
+    await loadSupervisorMaster(read)
+    expect(read).toHaveBeenCalledWith('master-file', 'master_supervisor', MASTER_SUPERVISOR_HEADERS)
   })
 })

@@ -9,7 +9,7 @@ import {
 import { FieldError } from './FieldError'
 import { CheckIcon, TrashIcon, UploadIcon } from './icons'
 
-type KtpFieldPath = `wilayah.${number}.supervisors.${number}.ktp`
+type KtpFieldPath = `supervisors.${number}.ktp`
 
 export function FileUploadField(props: {
   name: KtpFieldPath

@@ -9,9 +9,10 @@ describe('App', () => {
     expect(html).toContain('Logo PILOK')
     expect(html).toContain('PILOK - Supervisor')
     expect(html).toContain(
-      'Pendataan Supervisor Distributor Berdasarkan Wilayah Operasional.',
+      'Pendataan Supervisor berdasarkan Distributor dan AP.',
     )
     expect(html).toContain('Informasi Distributor')
+    expect(html).toContain('AP *')
     expect(html).toContain('combobox')
     expect(html).not.toContain('Kode Distributor')
     expect(html).not.toContain('<h2>Wilayah Operasional</h2>')

@@ -26,12 +26,10 @@ describe('new KTP failure cleanup safety', () => {
   it('extracts only new uploads, never reused existing KTP files', () => {
     const candidates = extractCleanupCandidates({
       requestToken: '20260915_123e4567-e89b-42d3-a456-426614174000',
-      wilayah: [{
-        supervisors: [
+      supervisors: [
           { ktp: { kind: 'existing' } },
           { ktp: { kind: 'new', fileId: 'file_new_123456789' } },
-        ],
-      }],
+      ],
     })
     expect(candidates?.fileIds).toEqual(['file_new_123456789'])
   })

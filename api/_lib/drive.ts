@@ -47,7 +47,7 @@ export function sanitizeFileSegment(value: string, maxLength = 50): string {
 
 export function createStoredKtpFileName(input: {
   namaDistributor: string
-  areaName: string
+  ap: string
   supervisorNo: number
   namaSupervisor: string
   mimeType: string
@@ -75,7 +75,7 @@ export function createStoredKtpFileName(input: {
   return [
     'KTP',
     sanitizeFileSegment(input.namaDistributor),
-    sanitizeFileSegment(input.areaName),
+    sanitizeFileSegment(input.ap),
     String(input.supervisorNo).padStart(2, '0'),
     sanitizeFileSegment(input.namaSupervisor),
     timestamp,
@@ -88,8 +88,7 @@ function contextProperties(context: KtpUploadContext) {
     application: DRIVE_APP_MARKER,
     requestToken: context.requestToken,
     namaDistributor: context.namaDistributor,
-    provinsiName: context.provinsiName,
-    areaName: context.areaName,
+    ap: context.ap,
     supervisorNo: String(context.supervisorNo),
   }
 }

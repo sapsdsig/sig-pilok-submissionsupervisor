@@ -1,8 +1,8 @@
-export const MASTER_DISTRIBUTOR_HEADERS = ['Nama Distributor'] as const
-
-export const PROVINCE_AREA_HEADERS = [
-  'Provinsi Name',
-  'Area Name',
+export const MASTER_SUPERVISOR_HEADERS = [
+  'AP',
+  'Vendor Name',
+  'Fullname',
+  'ID MDXL',
 ] as const
 
 export const SUBMISSION_HEADERS = [
@@ -15,8 +15,7 @@ export const SUBMISSION_HEADERS = [
 export const SUBMISSION_AREA_HEADERS = [
   'submission_area_id',
   'submission_id',
-  'provinsi_name',
-  'area_name',
+  'ap',
   'jumlah_supervisor',
 ] as const
 
@@ -25,8 +24,8 @@ export const SUBMISSION_SUPERVISOR_HEADERS = [
   'submission_id',
   'submission_area_id',
   'nama_distributor',
-  'provinsi',
-  'area',
+  'ap',
+  'id_mdxl',
   'supervisor_no',
   'nama_supervisor',
   'ktp_file_id',

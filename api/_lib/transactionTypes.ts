@@ -1,26 +1,16 @@
-export type PersistedKtp = {
-  fileId: string
-  fileName: string
-  fileUrl: string
-}
-
+export type PersistedKtp = { fileId: string; fileName: string; fileUrl: string }
 export type PersistedSupervisor = {
   supervisorId: string
+  idMdxl: string
   namaSupervisor: string
-  ktp: PersistedKtp
+  ktp?: PersistedKtp
 }
-
-export type PersistedWilayah = {
-  submissionAreaId: string
-  provinsiName: string
-  areaName: string
-  supervisors: PersistedSupervisor[]
-}
-
 export type PersistedSubmission = {
   submissionId: string
+  submissionAreaId: string
   namaDistributor: string
+  ap: string
   createdAt: string
   updatedAt: string
-  wilayah: PersistedWilayah[]
+  supervisors: PersistedSupervisor[]
 }

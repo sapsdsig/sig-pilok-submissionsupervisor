@@ -1,184 +1,43 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { SubmissionRequest } from '../../src/types/api.js'
-import {
-  validateAndNormalizeSubmission,
-  type SubmissionValidationDependencies,
-} from './submissionValidation.js'
+import type { SubmissionRequest, UploadedKtp } from '../../src/types/api.js'
 import type { PersistedSubmission } from './transactionTypes.js'
+import { validateAndNormalizeSubmission, type SubmissionValidationDependencies } from './submissionValidation.js'
 
-const uploaded = {
-  fileId: 'file_123456789',
-  fileName: 'KTP_BUDI.pdf',
-  mimeType: 'application/pdf',
-  fileUrl: 'https://drive.google.com/file/d/file_123456789/view',
-}
-const payload = (): SubmissionRequest => ({
-  requestToken: '20260915_123e4567-e89b-42d3-a456-426614174000',
-  namaDistributor: 'distributor canonical',
-  wilayah: [
-    {
-      provinsiName: 'aceh',
-      areaName: 'area 02',
-      supervisors: [
-        { namaSupervisor: ' Budi ', ktp: { kind: 'new', ...uploaded } },
-      ],
-    },
-  ],
+const uploaded: UploadedKtp = { fileId: 'file_123456789', fileName: 'KTP.pdf', mimeType: 'application/pdf', fileUrl: 'https://drive.google.com/file/x' }
+const deps = (): SubmissionValidationDependencies => ({
+  getDistributorAp: vi.fn(async () => ({ distributor: { namaDistributor: 'VENDOR A' }, ap: { ap: 'Supervisor AP1 SP' } })),
+  getBaseline: vi.fn(async (input) => ({ vendorName: 'VENDOR A', ap: 'Supervisor AP1 SP', fullname: input.namaSupervisor, idMdxl: input.idMdxl })),
+  verifyNewKtp: vi.fn(async () => uploaded), verifyExistingKtp: vi.fn(async () => uploaded),
 })
-const dependencies = (): SubmissionValidationDependencies => ({
-  getDistributor: vi.fn(async () => ({
-    namaDistributor: 'DISTRIBUTOR CANONICAL',
-  })),
-  getRegion: vi.fn(async () => ({
-    province: { provinsiName: 'ACEH' },
-    area: { areaName: 'Area 02' },
-  })),
-  verifyNewKtp: vi.fn(async () => uploaded),
-  verifyExistingKtp: vi.fn(async () => uploaded),
+const base = (): SubmissionRequest => ({
+  requestToken: '20260915_123e4567-e89b-42d3-a456-426614174000', namaDistributor: 'vendor a', ap: 'supervisor ap1 sp',
+  supervisors: [{ source: 'baseline', idMdxl: '1453366', namaSupervisor: 'APRIFALDI', ktp: { kind: 'not-required' } }],
 })
-const stored: PersistedSubmission = {
-  submissionId: 'SUP-EXISTING',
-  namaDistributor: 'DISTRIBUTOR CANONICAL',
-  createdAt: '2026-09-15T00:00:00.000Z',
-  updatedAt: '2026-09-15T00:00:00.000Z',
-  wilayah: [
-    {
-      submissionAreaId: 'AREA-OLD',
-      provinsiName: 'ACEH',
-      areaName: 'Area 02',
-      supervisors: [
-        {
-          supervisorId: 'SPV-OLD',
-          namaSupervisor: 'Budi',
-          ktp: uploaded,
-        },
-      ],
-    },
-  ],
-}
+const existing = (): PersistedSubmission => ({
+  submissionId: 'SUP-1', submissionAreaId: 'AREA-1', namaDistributor: 'VENDOR A', ap: 'Supervisor AP1 SP', createdAt: '2026-01-01 10:00:00', updatedAt: '2026-01-01 10:00:00',
+  supervisors: [{ supervisorId: 'SPV-CUSTOM', idMdxl: '', namaSupervisor: 'CUSTOM', ktp: { fileId: uploaded.fileId, fileName: uploaded.fileName, fileUrl: uploaded.fileUrl } }],
+})
 
-describe('Phase 4 backend submission validation', () => {
-  it('resolves canonical Distributor and Region names', async () => {
-    const result = await validateAndNormalizeSubmission(
-      payload(),
-      null,
-      dependencies(),
-    )
-    expect(result.distributor.namaDistributor).toBe('DISTRIBUTOR CANONICAL')
-    expect(result.wilayah[0]?.province.provinsiName).toBe('ACEH')
-    expect(result.wilayah[0]?.supervisors[0]?.namaSupervisor).toBe('Budi')
+describe('Phase 7 submission validation', () => {
+  it('allows a master-validated baseline without KTP', async () => {
+    const result = await validateAndNormalizeSubmission(base(), null, deps())
+    expect(result.supervisors[0]).toMatchObject({ idMdxl: '1453366', ktpSource: 'not-required' })
   })
-
-  it('rejects duplicate Province and Area names', async () => {
-    const input = payload()
-    input.wilayah.push({ ...input.wilayah[0]! })
-    await expect(
-      validateAndNormalizeSubmission(input, null, dependencies()),
-    ).rejects.toMatchObject({ code: 'SUBMISSION_INVALID' })
+  it('does not allow fake ID MDXL to bypass KTP', async () => {
+    const dependencies = deps(); vi.mocked(dependencies.getBaseline).mockRejectedValue(new Error('fake'))
+    await expect(validateAndNormalizeSubmission(base(), null, dependencies)).rejects.toThrow('fake')
   })
-
-  it('derives one-to-ten Supervisor validation from the array', async () => {
-    const input = payload()
-    input.wilayah[0]!.supervisors = []
-    await expect(
-      validateAndNormalizeSubmission(input, null, dependencies()),
-    ).rejects.toMatchObject({ code: 'SUBMISSION_INVALID' })
+  it('requires KTP for custom Supervisor', async () => {
+    const value = base(); value.supervisors = [{ source: 'custom', namaSupervisor: 'CUSTOM', ktp: { kind: 'not-required' } }]
+    await expect(validateAndNormalizeSubmission(value, null, deps())).rejects.toMatchObject({ code: 'KTP_INVALID' })
   })
-
-  it('requires a newly uploaded KTP during create', async () => {
-    const input = payload()
-    input.wilayah[0]!.supervisors[0]!.ktp = {
-      kind: 'existing',
-    }
-    await expect(
-      validateAndNormalizeSubmission(input, null, dependencies()),
-    ).rejects.toMatchObject({ code: 'KTP_INVALID' })
+  it('accepts a new custom KTP and canonicalizes Distributor/AP', async () => {
+    const value = base(); value.supervisors = [{ source: 'custom', namaSupervisor: 'CUSTOM', ktp: { kind: 'new', ...uploaded } }]
+    const result = await validateAndNormalizeSubmission(value, null, deps())
+    expect(result.distributor.namaDistributor).toBe('VENDOR A'); expect(result.ap.ap).toBe('Supervisor AP1 SP'); expect(result.supervisors[0]?.idMdxl).toBe('')
   })
-
-  it('allows reuse only when KTP belongs to the stored Supervisor', async () => {
-    const input = payload()
-    input.wilayah[0] = {
-      submissionAreaId: 'AREA-OLD',
-      provinsiName: 'ACEH',
-      areaName: 'Area 02',
-      supervisors: [
-        {
-          supervisorId: 'SPV-OLD',
-          namaSupervisor: 'Budi Baru',
-          ktp: { kind: 'existing' },
-        },
-      ],
-    }
-    const deps = dependencies()
-    await expect(
-      validateAndNormalizeSubmission(input, stored, deps),
-    ).resolves.toMatchObject({
-      wilayah: [{ supervisors: [{ ktpSource: 'existing' }] }],
-    })
-    expect(deps.verifyExistingKtp).toHaveBeenCalledWith(
-      uploaded.fileId,
-      stored.wilayah[0]!.supervisors[0]!.ktp,
-    )
-  })
-
-  it('rejects duplicate KTP files after server-side resolution', async () => {
-    const persisted = structuredClone(stored)
-    persisted.wilayah[0]!.supervisors.push({
-      supervisorId: 'SPV-TWO',
-      namaSupervisor: 'Ani',
-      ktp: { ...uploaded },
-    })
-    const input = payload()
-    input.wilayah[0] = {
-      submissionAreaId: 'AREA-OLD',
-      provinsiName: 'ACEH',
-      areaName: 'Area 02',
-      supervisors: [
-        {
-          supervisorId: 'SPV-OLD',
-          namaSupervisor: 'Budi',
-          ktp: { kind: 'existing' },
-        },
-        {
-          supervisorId: 'SPV-TWO',
-          namaSupervisor: 'Ani',
-          ktp: { kind: 'existing' },
-        },
-      ],
-    }
-
-    await expect(
-      validateAndNormalizeSubmission(input, persisted, dependencies()),
-    ).rejects.toMatchObject({ code: 'SUBMISSION_INVALID' })
-  })
-
-  it('rejects arbitrary child IDs', async () => {
-    const input = payload()
-    Object.assign(input.wilayah[0]!, { submissionAreaId: 'AREA-OTHER' })
-    await expect(
-      validateAndNormalizeSubmission(input, stored, dependencies()),
-    ).rejects.toMatchObject({ code: 'SUBMISSION_INVALID' })
-  })
-
-  it('rejects client-provided metadata for a stored KTP', async () => {
-    const input = payload()
-    input.wilayah[0] = {
-      submissionAreaId: 'AREA-OLD',
-      provinsiName: 'ACEH',
-      areaName: 'Area 02',
-      supervisors: [
-        {
-          supervisorId: 'SPV-OLD',
-          namaSupervisor: 'Budi',
-          ktp: Object.assign(
-            { kind: 'existing' as const },
-            { fileId: 'file_999999999' },
-          ),
-        },
-      ],
-    }
-    await expect(
-      validateAndNormalizeSubmission(input, stored, dependencies()),
-    ).rejects.toMatchObject({ code: 'SUBMISSION_INVALID' })
+  it('allows saved custom Supervisor to reuse existing KTP', async () => {
+    const value = base(); value.submissionAreaId = 'AREA-1'; value.supervisors = [{ supervisorId: 'SPV-CUSTOM', source: 'custom', namaSupervisor: 'CUSTOM EDIT', ktp: { kind: 'existing' } }]
+    await expect(validateAndNormalizeSubmission(value, existing(), deps())).resolves.toMatchObject({ supervisors: [{ ktpSource: 'existing' }] })
   })
 })

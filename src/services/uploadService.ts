@@ -86,8 +86,7 @@ class GoogleDriveUploadService implements UploadService {
     const sessionPayload: KtpUploadSessionRequest = {
       requestToken: input.requestToken,
       namaDistributor: input.namaDistributor,
-      provinsiName: input.provinsiName,
-      areaName: input.areaName,
+      ap: input.ap,
       supervisorNo: input.supervisorNo,
       namaSupervisor: input.namaSupervisor,
       fileName: input.file.name,
@@ -119,8 +118,7 @@ class GoogleDriveUploadService implements UploadService {
         requestToken: input.requestToken,
         fileId: driveResponse.id,
         namaDistributor: input.namaDistributor,
-        provinsiName: input.provinsiName,
-        areaName: input.areaName,
+        ap: input.ap,
         supervisorNo: input.supervisorNo,
       }),
     })

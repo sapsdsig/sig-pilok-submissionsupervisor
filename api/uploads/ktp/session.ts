@@ -8,18 +8,14 @@ import {
 } from '../../_lib/drive.js'
 import { ApiError, rejectMethod, sendApiError } from '../../_lib/errors.js'
 import type { ApiRequest, ApiResponse } from '../../_lib/http.js'
-import {
-  getCanonicalRegion,
-  getCanonicalDistributor,
-} from '../../_lib/masterData.js'
+import { getCanonicalDistributorAp } from '../../_lib/masterData.js'
 import { requestTokenSchema } from '../../_lib/requestToken.js'
 
 const sessionSchema = z
   .object({
     requestToken: requestTokenSchema,
     namaDistributor: z.string().trim().min(1).max(200),
-    provinsiName: z.string().trim().min(1).max(150),
-    areaName: z.string().trim().min(1).max(150),
+    ap: z.string().trim().min(1).max(150),
     supervisorNo: z.number().int().min(1).max(10),
     namaSupervisor: z.string().trim().min(1).max(150),
     fileName: z.string().trim().min(1).max(255),
@@ -46,10 +42,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
       )
     }
 
-    await Promise.all([
-      getCanonicalDistributor(parsed.data.namaDistributor),
-      getCanonicalRegion(parsed.data.provinsiName, parsed.data.areaName),
-    ])
+    await getCanonicalDistributorAp(parsed.data.namaDistributor, parsed.data.ap)
     const session = await createResumableKtpSession({
       ...parsed.data,
       origin,

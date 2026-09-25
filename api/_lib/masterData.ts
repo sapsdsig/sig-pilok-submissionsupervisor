@@ -1,201 +1,156 @@
 import type {
-  AreaOption,
+  ApOption,
   Distributor,
-  ProvinceOption,
+  SupervisorMasterRow,
 } from '../../src/types/masterData.js'
 import { TimedCache } from './cache.js'
-import {
-  getMasterDistributorSheetConfig,
-  getProvinceAreaSheetConfig,
-} from './env.js'
+import { getMasterSupervisorSheetConfig } from './env.js'
 import { ApiError } from './errors.js'
-import {
-  MASTER_DISTRIBUTOR_HEADERS,
-  PROVINCE_AREA_HEADERS,
-} from './sheetHeaders.js'
+import { MASTER_SUPERVISOR_HEADERS } from './sheetHeaders.js'
 import { readSheetTable, type SheetTable } from './sheets.js'
 
 const MASTER_CACHE_TTL_MS = 60_000
 
-export type RegionMaster = {
-  provinces: ProvinceOption[]
-  areasByProvince: ReadonlyMap<string, AreaOption[]>
-}
-
 export const normalizeMasterName = (value: string) =>
   value.trim().toLocaleUpperCase('id-ID')
 
-export function parseDistributorMaster(table: SheetTable): Distributor[] {
-  const distributors = new Map<string, Distributor>()
+const integrityError = (message: string) =>
+  new ApiError(500, 'MASTER_DATA_CONFLICT', message)
+
+export function parseSupervisorMaster(table: SheetTable): SupervisorMasterRow[] {
+  const rows: SupervisorMasterRow[] = []
+  const vendors = new Map<string, string>()
+  const aps = new Map<string, string>()
+  const identities = new Map<string, { fullname: string; rowNumber: number }>()
+  const idMappings = new Map<string, { identity: string; rowNumber: number }>()
 
   for (const row of table.rows) {
-    const namaDistributor = row.record['Nama Distributor']?.trim() ?? ''
-    if (!namaDistributor) continue
-    const normalized = normalizeMasterName(namaDistributor)
-    if (distributors.has(normalized)) {
-      throw new ApiError(
-        500,
-        'MASTER_DATA_CONFLICT',
-        `Nama Distributor duplikat pada master: ${namaDistributor} (baris ${row.rowNumber}).`,
-      )
+    const parsed = {
+      ap: row.record.AP?.trim() ?? '',
+      vendorName: row.record['Vendor Name']?.trim() ?? '',
+      fullname: row.record.Fullname?.trim() ?? '',
+      idMdxl: row.record['ID MDXL']?.trim() ?? '',
     }
-    distributors.set(normalized, { namaDistributor })
-  }
+    if (!parsed.ap && !parsed.vendorName && !parsed.fullname && !parsed.idMdxl) continue
+    if (Object.values(parsed).some((value) => !value)) {
+      throw integrityError(`Data master_supervisor tidak lengkap pada baris ${row.rowNumber}.`)
+    }
 
-  return [...distributors.values()]
+    const vendorKey = normalizeMasterName(parsed.vendorName)
+    const apKey = normalizeMasterName(parsed.ap)
+    const nameKey = normalizeMasterName(parsed.fullname)
+    const idKey = normalizeMasterName(parsed.idMdxl)
+    const canonicalVendor = vendors.get(vendorKey)
+    const canonicalAp = aps.get(apKey)
+    if (canonicalVendor && canonicalVendor !== parsed.vendorName) {
+      throw integrityError(`Nama Vendor memiliki canonical yang bertentangan pada baris ${row.rowNumber}: ${parsed.vendorName}.`)
+    }
+    if (canonicalAp && canonicalAp !== parsed.ap) {
+      throw integrityError(`Nama AP memiliki canonical yang bertentangan pada baris ${row.rowNumber}: ${parsed.ap}.`)
+    }
+    vendors.set(vendorKey, parsed.vendorName)
+    aps.set(apKey, parsed.ap)
+
+    const identity = `${vendorKey}::${apKey}::${idKey}`
+    const existing = identities.get(identity)
+    if (existing) {
+      if (normalizeMasterName(existing.fullname) !== nameKey) {
+        throw integrityError(`ID MDXL ${parsed.idMdxl} memiliki Fullname bertentangan pada baris ${existing.rowNumber} dan ${row.rowNumber}.`)
+      }
+      throw integrityError(`Baris master_supervisor duplikat pada baris ${existing.rowNumber} dan ${row.rowNumber}.`)
+    }
+    const idMapping = idMappings.get(idKey)
+    if (idMapping && idMapping.identity !== identity) {
+      throw integrityError(`ID MDXL ${parsed.idMdxl} dipetakan ke identitas berbeda pada baris ${idMapping.rowNumber} dan ${row.rowNumber}.`)
+    }
+    identities.set(identity, { fullname: parsed.fullname, rowNumber: row.rowNumber })
+    idMappings.set(idKey, { identity, rowNumber: row.rowNumber })
+    rows.push(parsed)
+  }
+  return rows
 }
 
-export function parseRegionMaster(table: SheetTable): RegionMaster {
-  const provinces = new Map<string, ProvinceOption>()
-  const areasByProvince = new Map<string, Map<string, AreaOption>>()
-
-  for (const row of table.rows) {
-    const provinsiName = row.record['Provinsi Name']?.trim() ?? ''
-    const areaName = row.record['Area Name']?.trim() ?? ''
-    if (!provinsiName && !areaName) continue
-    if (!provinsiName || !areaName) {
-      throw new ApiError(
-        500,
-        'MASTER_DATA_CONFLICT',
-        `Data Provinsi/Area tidak lengkap pada baris ${row.rowNumber}.`,
-      )
-    }
-
-    const provinceKey = normalizeMasterName(provinsiName)
-    const canonicalProvince = provinces.get(provinceKey)
-    if (
-      canonicalProvince &&
-      canonicalProvince.provinsiName !== provinsiName
-    ) {
-      throw new ApiError(
-        500,
-        'MASTER_DATA_CONFLICT',
-        `Nama Provinsi tidak konsisten: ${provinsiName}.`,
-      )
-    }
-    provinces.set(provinceKey, canonicalProvince ?? { provinsiName })
-
-    const provinceAreas = areasByProvince.get(provinceKey) ?? new Map()
-    const areaKey = normalizeMasterName(areaName)
-    const canonicalArea = provinceAreas.get(areaKey)
-    if (canonicalArea && canonicalArea.areaName !== areaName) {
-      throw new ApiError(
-        500,
-        'MASTER_DATA_CONFLICT',
-        `Nama Area tidak konsisten pada Provinsi ${provinsiName}: ${areaName}.`,
-      )
-    }
-    provinceAreas.set(areaKey, canonicalArea ?? { areaName })
-    areasByProvince.set(provinceKey, provinceAreas)
-  }
-
-  return {
-    provinces: [...provinces.values()],
-    areasByProvince: new Map(
-      [...areasByProvince].map(([provinceKey, areas]) => [
-        provinceKey,
-        [...areas.values()],
-      ]),
-    ),
-  }
-}
-
-export async function loadDistributorMaster(
+export async function loadSupervisorMaster(
   readTable: typeof readSheetTable = readSheetTable,
-): Promise<Distributor[]> {
-  const config = getMasterDistributorSheetConfig()
-  const table = await readTable(
-    config.spreadsheetId,
-    config.sheetName,
-    MASTER_DISTRIBUTOR_HEADERS,
+): Promise<SupervisorMasterRow[]> {
+  const config = getMasterSupervisorSheetConfig()
+  return parseSupervisorMaster(
+    await readTable(config.spreadsheetId, config.sheetName, MASTER_SUPERVISOR_HEADERS),
   )
-  return parseDistributorMaster(table)
 }
 
-export async function loadRegionMaster(
-  readTable: typeof readSheetTable = readSheetTable,
-): Promise<RegionMaster> {
-  const config = getProvinceAreaSheetConfig()
-  const table = await readTable(
-    config.spreadsheetId,
-    config.sheetName,
-    PROVINCE_AREA_HEADERS,
-  )
-  return parseRegionMaster(table)
+const masterCache = new TimedCache(loadSupervisorMaster, MASTER_CACHE_TTL_MS)
+
+export function extractDistributors(rows: readonly SupervisorMasterRow[]): Distributor[] {
+  const values = new Map<string, Distributor>()
+  for (const row of rows) {
+    const key = normalizeMasterName(row.vendorName)
+    if (!values.has(key)) values.set(key, { namaDistributor: row.vendorName })
+  }
+  return [...values.values()]
 }
 
-const distributorCache = new TimedCache(
-  loadDistributorMaster,
-  MASTER_CACHE_TTL_MS,
-)
-const regionCache = new TimedCache(loadRegionMaster, MASTER_CACHE_TTL_MS)
+export function extractApOptions(
+  rows: readonly SupervisorMasterRow[],
+  namaDistributor: string,
+): ApOption[] {
+  const vendorKey = normalizeMasterName(namaDistributor)
+  const values = new Map<string, ApOption>()
+  for (const row of rows) {
+    if (normalizeMasterName(row.vendorName) !== vendorKey) continue
+    const key = normalizeMasterName(row.ap)
+    if (!values.has(key)) values.set(key, { ap: row.ap })
+  }
+  return [...values.values()]
+}
 
 export async function getDistributors(query = ''): Promise<Distributor[]> {
-  const distributors = await distributorCache.get()
-  const normalizedQuery = normalizeMasterName(query)
-  if (!normalizedQuery) return distributors
-  return distributors.filter((item) =>
-    normalizeMasterName(item.namaDistributor).includes(normalizedQuery),
-  )
+  const values = extractDistributors(await masterCache.get())
+  const key = normalizeMasterName(query)
+  return key ? values.filter((item) => normalizeMasterName(item.namaDistributor).includes(key)) : values
 }
 
-export async function getCanonicalDistributor(
-  name: string,
-): Promise<Distributor> {
-  const distributors = await distributorCache.get()
-  const normalized = normalizeMasterName(name)
-  const distributor = distributors.find(
-    (item) => normalizeMasterName(item.namaDistributor) === normalized,
+export async function getCanonicalDistributor(name: string): Promise<Distributor> {
+  const key = normalizeMasterName(name)
+  const distributor = extractDistributors(await masterCache.get()).find(
+    (item) => normalizeMasterName(item.namaDistributor) === key,
   )
-  if (!distributor) {
-    throw new ApiError(
-      404,
-      'DISTRIBUTOR_NOT_FOUND',
-      'Distributor tidak ditemukan pada master.',
-    )
-  }
+  if (!distributor) throw new ApiError(404, 'DISTRIBUTOR_NOT_FOUND', 'Distributor tidak ditemukan pada master.')
   return distributor
 }
 
-export async function getProvinces(): Promise<ProvinceOption[]> {
-  return (await regionCache.get()).provinces
+export async function getApOptions(namaDistributor: string): Promise<ApOption[]> {
+  const distributor = await getCanonicalDistributor(namaDistributor)
+  return extractApOptions(await masterCache.get(), distributor.namaDistributor)
 }
 
-export async function getAreasByProvince(
-  provinceName: string,
-): Promise<AreaOption[]> {
-  const master = await regionCache.get()
-  const provinceKey = normalizeMasterName(provinceName)
-  if (
-    !master.provinces.some(
-      (province) =>
-        normalizeMasterName(province.provinsiName) === provinceKey,
-    )
-  ) {
-    throw new ApiError(404, 'REGION_NOT_FOUND', 'Provinsi tidak ditemukan.')
-  }
-  return master.areasByProvince.get(provinceKey) ?? []
-}
-
-export async function getCanonicalRegion(
-  provinceName: string,
-  areaName: string,
-): Promise<{ province: ProvinceOption; area: AreaOption }> {
-  const master = await regionCache.get()
-  const provinceKey = normalizeMasterName(provinceName)
-  const areaKey = normalizeMasterName(areaName)
-  const province = master.provinces.find(
-    (item) => normalizeMasterName(item.provinsiName) === provinceKey,
+export async function getCanonicalDistributorAp(
+  namaDistributor: string,
+  ap: string,
+): Promise<{ distributor: Distributor; ap: ApOption }> {
+  const distributor = await getCanonicalDistributor(namaDistributor)
+  const apKey = normalizeMasterName(ap)
+  const canonicalAp = (await getApOptions(distributor.namaDistributor)).find(
+    (item) => normalizeMasterName(item.ap) === apKey,
   )
-  const area = master.areasByProvince
-    .get(provinceKey)
-    ?.find((item) => normalizeMasterName(item.areaName) === areaKey)
-  if (!province || !area) {
-    throw new ApiError(
-      400,
-      'REGION_NOT_FOUND',
-      'Kombinasi Provinsi dan Area tidak valid.',
-    )
+  if (!canonicalAp) throw new ApiError(400, 'AP_NOT_FOUND', 'AP tidak terdaftar untuk Distributor yang dipilih.')
+  return { distributor, ap: canonicalAp }
+}
+
+export async function getCanonicalBaselineSupervisor(input: {
+  namaDistributor: string
+  ap: string
+  idMdxl: string
+  namaSupervisor: string
+}): Promise<SupervisorMasterRow> {
+  const row = (await masterCache.get()).find(
+    (item) =>
+      normalizeMasterName(item.vendorName) === normalizeMasterName(input.namaDistributor) &&
+      normalizeMasterName(item.ap) === normalizeMasterName(input.ap) &&
+      normalizeMasterName(item.idMdxl) === normalizeMasterName(input.idMdxl),
+  )
+  if (!row || normalizeMasterName(row.fullname) !== normalizeMasterName(input.namaSupervisor)) {
+    throw new ApiError(400, 'BASELINE_IDENTITY_INVALID', 'Identitas Supervisor baseline tidak sesuai dengan master_supervisor.')
   }
-  return { province, area }
+  return row
 }

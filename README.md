@@ -1,204 +1,157 @@
-# PILOK Supervisor Form #
+# PILOK Supervisor Form
 
-Standalone form for creating and editing Supervisor data by Distributor and
-operational area. Master data and normalized transactions live in Google
-Sheets. KTP files upload directly from the browser to Google Drive through
-server-created resumable sessions; file bytes never pass through the Vercel
-functions.
+Form React + TypeScript untuk membuat dan mengedit data Supervisor berdasarkan satu identitas bisnis:
 
-Google OAuth credentials, refresh tokens, spreadsheet IDs, and Drive folder
-configuration remain server-side.
+```text
+Distributor + AP
+```
 
-## Tech stack
+Satu form hanya menangani satu AP. Distributor yang memiliki dua AP harus disimpan melalui dua submission terpisah.
 
-React, TypeScript, Vite, Tailwind CSS, React Hook Form, Zod, Google APIs, and
-Vercel-compatible TypeScript server functions.
+## Arsitektur data Phase 7
 
-## Shared UI baseline
+`master_supervisor` adalah referensi immutable baseline Q1 2026. Form publik hanya membacanya dan tidak pernah mengubah atau menghapus baris master.
 
-The Supervisor form is the visual baseline for other PILOK forms. Branding,
-layout, field, button, upload, and feedback conventions are documented in
-[docs/ui-guidelines.md](docs/ui-guidelines.md).
+```text
+master_supervisor (immutable Q1 2026 reference)
+        |
+        +--> pilihan Distributor dari Vendor Name
+        +--> pilihan AP per Distributor
+        +--> validasi identitas baseline dan ID MDXL
 
-## Local setup
+submission + submission_area + submission_supervisor
+        |
+        +--> current editable state setelah save pertama
+```
 
-Requirements: Node.js 20 or newer, three configured Google Spreadsheets, and
-the direct File Upload - KTP Supervisor Drive folder.
+Sebelum save pertama, Supervisor baseline dimuat dari baris `submission_supervisor` yang memiliki transaction ID kosong. Setelah save pertama, state submission menjadi satu-satunya source of truth; baris master atau baseline tidak digabungkan kembali. Karena itu Supervisor baseline yang sudah dihapus tidak akan muncul kembali.
 
-~~~bash
+## Setup lokal
+
+Memerlukan Node.js 20+, satu Spreadsheet master, satu Spreadsheet transaksi, dan folder Google Drive untuk KTP.
+
+```bash
 npm install
 copy .env.example .env
 npm run dev
-~~~
+```
 
-Available checks:
+Semua kredensial dan resource ID bersifat server-side. Jangan memakai prefix `VITE_`.
 
-~~~bash
-npm run test
-npm run lint
-npm run typecheck
-npm run build
-npm run verify:google
-~~~
+| Variable | Keterangan |
+| --- | --- |
+| `GOOGLE_CLIENT_ID` | OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | OAuth client secret |
+| `GOOGLE_REFRESH_TOKEN` | Offline refresh token |
+| `GOOGLE_MASTER_SUPERVISOR_SPREADSHEET_ID` | Spreadsheet master Q1 2026 |
+| `GOOGLE_SUBMISSION_SPREADSHEET_ID` | Spreadsheet transaksi |
+| `GOOGLE_DRIVE_KTP_FOLDER_ID` | Folder upload KTP |
+| `APP_ORIGIN` | Origin produksi yang diizinkan |
 
-The Google verifier is read-only. It checks OAuth access, spreadsheet
-worksheets and headers, and Drive folder access without appending rows or
-uploading files.
+Override nama worksheet opsional tersedia di `.env.example`.
 
-## Environment variables
+## Skema Google Sheets
 
-Never expose these variables with a VITE_ prefix.
+Worksheet `master_supervisor`:
 
-| Variable | Required | Description |
-| --- | --- | --- |
-| GOOGLE_CLIENT_ID | Yes | OAuth client ID |
-| GOOGLE_CLIENT_SECRET | Yes | OAuth client secret |
-| GOOGLE_REFRESH_TOKEN | Yes | Offline refresh token |
-| GOOGLE_MASTER_DISTRIBUTOR_SPREADSHEET_ID | Yes | Distributor master spreadsheet |
-| GOOGLE_PROVINSI_AREA_SPREADSHEET_ID | Yes | Province/Area master spreadsheet |
-| GOOGLE_SUBMISSION_SPREADSHEET_ID | Yes | Transaction spreadsheet |
-| GOOGLE_DRIVE_KTP_FOLDER_ID | Yes | Direct KTP upload destination |
-| APP_ORIGIN | Production | Exact public application origin |
+```text
+AP
+Vendor Name
+Fullname
+ID MDXL
+```
 
-Optional worksheet-name overrides remain documented in .env.example.
-Localhost origins are allowed automatically; production must match APP_ORIGIN.
+Worksheet `submission`:
 
-## Google resources
-
-~~~text
-PILOK - Supervisor
-|-- File Upload - KTP Supervisor
-|-- master_distributor
-|-- provinsi_area
-|-- submission
-~~~
-
-The three spreadsheet names are separate Google Spreadsheet files. The Drive
-folder ID points directly to File Upload - KTP Supervisor; no parent folder
-configuration is used.
-
-Header spelling is exact, while column order may change. Runtime access maps
-columns by header name.
-
-### Distributor spreadsheet
-
-Worksheet master_distributor:
-
-~~~text
-Nama Distributor
-~~~
-
-Distributor names are canonical business keys and must be unique after
-case-insensitive trimming.
-
-### Province/Area spreadsheet
-
-Worksheet provinsi_area:
-
-~~~text
-Provinsi Name
-Area Name
-~~~
-
-The server defensively deduplicates Province names and Province/Area pairs.
-
-### Submission spreadsheet
-
-Worksheet submission:
-
-~~~text
+```text
 submission_id
 nama_distributor
 created_at
 updated_at
-~~~
+```
 
-Worksheet submission_area:
+Worksheet `submission_area`:
 
-~~~text
+```text
 submission_area_id
 submission_id
-provinsi_name
-area_name
+ap
 jumlah_supervisor
-~~~
+```
 
-Worksheet submission_supervisor:
+Worksheet `submission_supervisor`:
 
-~~~text
+```text
 supervisor_id
 submission_id
 submission_area_id
 nama_distributor
-provinsi
-area
+ap
+id_mdxl
 supervisor_no
 nama_supervisor
 ktp_file_id
 ktp_file_name
 ktp_file_url
-~~~
+```
 
-The three reporting fields on submission_supervisor are resolved from validated
-server-side master data. This keeps the normalized parent/area model while
-allowing reporting directly from the Supervisor worksheet. Historical rows are
-not migrated automatically and may remain blank until their submission is
-edited and saved.
+Kolom legacy tambahan boleh tetap ada secara fisik dan akan diabaikan berdasarkan header mapping. Aplikasi tidak menghapus kolom secara otomatis. Record submission lama tanpa AP tidak ditebak dari Province/Area; record tersebut dilaporkan sebagai kebutuhan migrasi manual.
 
-Legacy extra columns may remain physically present; they are ignored. No
-destructive sheet migration is performed by the application.
+Timestamp transaksi disimpan dalam zona `Asia/Jakarta` dengan format `YYYY-MM-DD HH:mm:ss`.
 
-## User flow
+## Perilaku form
 
-- Distributor, Province, and Area are searchable master-backed controls.
-- Selecting a Distributor checks for one existing active submission.
-- No stored data opens Create Mode with one Wilayah and one Supervisor.
-- Existing data opens Edit Mode and hydrates child IDs and KTP references.
-- Each Wilayah always contains 1-10 Supervisor cards.
-- jumlah_supervisor and supervisor_no are derived on the server.
-- One canonical Distributor may have only one parent submission.
-- Switching Distributor with unsaved changes requires confirmation.
+- Distributor berasal dari distinct canonical `Vendor Name`.
+- AP selalu berasal dari master untuk Distributor terpilih; satu AP dipilih otomatis, beberapa AP memerlukan pilihan pengguna.
+- Nilai Distributor dan AP arbitrary ditolak frontend dan backend.
+- Nama Supervisor baseline readonly, `ID MDXL` tidak pernah ditampilkan, dan KTP tidak diperlukan.
+- Supervisor custom memiliki `id_mdxl` kosong dan wajib memiliki KTP JPG/JPEG/PNG/PDF maksimal 5 MB.
+- Custom Supervisor tersimpan hanya menampilkan `KTP tersimpan` dan `Ganti KTP`; URL, file ID, dan filename tidak diekspos oleh DTO publik.
+- Semua kartu dapat dihapus selama tersisa minimal satu Supervisor.
+- `jumlah_supervisor` dan `supervisor_no` selalu diturunkan server dari urutan terkini.
+- Perubahan Distributor/AP yang akan membuang edit belum tersimpan memerlukan konfirmasi.
 
-The server rejects arbitrary master values, duplicate Province/Area pairs,
-duplicate parent submissions, foreign child IDs, and foreign Drive file
-references.
+Penghapusan atau penggantian KTP custom dilakukan setelah update Sheets berhasil. Kegagalan persistence tidak menghapus KTP lama, dan cleanup file baru memeriksa referensi Sheets terlebih dahulu.
 
-## KTP edit safety
+## Baseline bootstrap
 
-Existing KTP metadata satisfies form validation and does not require a
-re-upload. Replacement and deletion follow this ordering:
+Import baseline bersifat idempotent dan default-nya dry-run:
 
-1. upload and verify required new files;
-2. validate the complete update;
-3. persist the parent and full replacement child state atomically with one
-   Google Sheets spreadsheets.batchUpdate;
-4. only after persistence succeeds, best-effort delete old files no longer
-   referenced.
+```bash
+npm run import:supervisor-baseline
+```
 
-If persistence fails, old Sheets data and old KTP files remain untouched.
-Newly uploaded files are cleanup candidates, but cleanup first checks current
-Sheets references so an ambiguous successful write cannot lose its new KTP.
-Post-success old-file cleanup failure is logged and does not roll back the
-saved form.
+Setelah memeriksa jumlah, jalankan write secara eksplisit:
 
-## API surface
+```bash
+npm run import:supervisor-baseline -- --apply
+```
 
-~~~text
+Import hanya menambah blank-ID baseline ke `submission_supervisor`. Import tidak membuat parent `submission`/`submission_area`, tidak memodifikasi master, tidak menduplikasi identitas, dan melewati seluruh kombinasi Distributor + AP yang sudah memiliki saved state.
+
+## Verifikasi
+
+```bash
+npm run test
+npm run lint
+npm run typecheck
+npm run build
+npm run verify:google
+```
+
+`verify:google` bersifat read-only: memeriksa OAuth, worksheet/header master dan transaksi, serta kemampuan upload folder Drive tanpa mengimpor baseline atau membuat file/baris.
+
+## API
+
+```text
 GET  /api/distributors?query=...
-GET  /api/regions/provinces
-GET  /api/regions/areas?provinceName=...
-GET  /api/submissions/by-distributor?namaDistributor=...
+GET  /api/aps?namaDistributor=...
+GET  /api/submissions/by-distributor-ap?namaDistributor=...&ap=...
 POST /api/uploads/ktp/session
 POST /api/uploads/ktp/verify
 POST /api/uploads/ktp/cleanup
 POST /api/submissions
 PUT  /api/submissions/:submissionId
-~~~
+```
 
-Master reads use a short-lived in-memory cache. Authentication and all Google
-resource IDs remain controlled by server environment configuration.
-
-## Deployment
-
-The repository is connected to Vercel. Deployment, production environment
-changes, and domain management are handled outside this development workflow.
+UI PILOK/SIG dan konvensinya didokumentasikan di [docs/ui-guidelines.md](docs/ui-guidelines.md).

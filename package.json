@@ -14,6 +14,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "verify:google": "tsx scripts/verify-google.ts",
+    "import:supervisor-baseline": "tsx scripts/import-supervisor-baseline.ts",
     "preview": "vite preview"
   },
   "dependencies": {

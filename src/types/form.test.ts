@@ -1,51 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import {
-  addSupervisor,
-  cancelNewKtpSelection,
-  createEmptyWilayah,
-  removeSupervisor,
-} from './form'
+import { addSupervisor, cancelNewKtpSelection, createEmptySupervisor, removeSupervisor } from './form'
 
 describe('Supervisor card state helpers', () => {
-  it('starts a new Wilayah with exactly one Supervisor', () => {
-    expect(createEmptyWilayah().supervisors).toHaveLength(1)
+  it('creates custom Supervisors and stops at ten', () => {
+    let values = [createEmptySupervisor()]
+    for (let index = 0; index < 15; index += 1) values = addSupervisor(values)
+    expect(values).toHaveLength(10)
+    expect(values[0]?.source).toBe('custom')
   })
-
-  it('adds Supervisors and stops at ten', () => {
-    let supervisors = createEmptyWilayah().supervisors
-    for (let index = 0; index < 15; index += 1) {
-      supervisors = addSupervisor(supervisors)
-    }
-    expect(supervisors).toHaveLength(10)
+  it('removes selected cards but never the final card', () => {
+    const values = [createEmptySupervisor(), { ...createEmptySupervisor(), namaSupervisor: 'B' }]
+    expect(removeSupervisor(values, 0).map((item) => item.namaSupervisor)).toEqual(['B'])
+    expect(removeSupervisor([createEmptySupervisor()], 0)).toHaveLength(1)
   })
-
-  it('removes a selected Supervisor and naturally reindexes the array', () => {
-    const supervisors = [
-      { namaSupervisor: 'A', ktp: null },
-      { namaSupervisor: 'B', ktp: null },
-      { namaSupervisor: 'C', ktp: null },
-    ]
-    expect(removeSupervisor(supervisors, 1).map((item) => item.namaSupervisor))
-      .toEqual(['A', 'C'])
-  })
-
-  it('never removes the final Supervisor', () => {
-    const supervisors = createEmptyWilayah().supervisors
-    expect(removeSupervisor(supervisors, 0)).toHaveLength(1)
-  })
-
-  it('cancels a local replacement back to the private existing-KTP state', () => {
+  it('cancels a local replacement back to private existing state', () => {
     const previous = { kind: 'existing' as const }
-    const replacement = {
-      kind: 'new' as const,
-      file: new File(['replacement'], 'ktp-baru.pdf', {
-        type: 'application/pdf',
-      }),
-      previous,
-    }
-
+    const replacement = { kind: 'new' as const, file: new File(['x'], 'ktp.pdf', { type: 'application/pdf' }), previous }
     expect(cancelNewKtpSelection(replacement)).toEqual(previous)
-    expect(cancelNewKtpSelection(replacement)).not.toHaveProperty('fileId')
-    expect(cancelNewKtpSelection(replacement)).not.toHaveProperty('fileUrl')
   })
 })

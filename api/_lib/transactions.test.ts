@@ -1,231 +1,40 @@
 import { describe, expect, it } from 'vitest'
 import type { ValidatedSubmission } from './submissionValidation.js'
 import type { PersistedSubmission } from './transactionTypes.js'
-import {
-  buildTransactionRecords,
-  deriveOldFileIdsToCleanup,
-} from './transactions.js'
+import { buildTransactionRecords, deriveOldFileIdsToCleanup } from './transactions.js'
 
 const input = (): ValidatedSubmission => ({
-  requestToken: '20260915_123e4567-e89b-42d3-a456-426614174000',
-  distributor: { namaDistributor: 'DISTRIBUTOR KANONIK' },
-  wilayah: [
-    {
-      submissionAreaId: 'AREA-OLD',
-      province: { provinsiName: 'ACEH' },
-      area: { areaName: 'Area 02' },
-      supervisors: [
-        {
-          supervisorId: 'SPV-OLD',
-          namaSupervisor: 'Budi',
-          ktpSource: 'existing',
-          ktp: {
-            fileId: 'file_old_12345',
-            fileName: 'KTP_OLD.pdf',
-            mimeType: 'application/pdf',
-            fileUrl: 'https://drive.google.com/file/d/file_old_12345/view',
-          },
-        },
-        {
-          namaSupervisor: 'Ani',
-          ktpSource: 'new',
-          ktp: {
-            fileId: 'file_new_12345',
-            fileName: 'KTP_NEW.png',
-            mimeType: 'image/png',
-            fileUrl: 'https://drive.google.com/file/d/file_new_12345/view',
-          },
-        },
-      ],
-    },
+  requestToken: '20260915_123e4567-e89b-42d3-a456-426614174000', distributor: { namaDistributor: 'VENDOR A' }, ap: { ap: 'Supervisor AP1 SP' },
+  supervisors: [
+    { idMdxl: '1453366', namaSupervisor: 'APRIFALDI', ktpSource: 'not-required' },
+    { idMdxl: '', namaSupervisor: 'CUSTOM', ktpSource: 'new', ktp: { fileId: 'file_new_12345', fileName: 'KTP.pdf', mimeType: 'application/pdf', fileUrl: 'https://drive.google.com/x' } },
   ],
 })
 const stored: PersistedSubmission = {
-  submissionId: 'SUP-EXISTING',
-  namaDistributor: 'DISTRIBUTOR KANONIK',
-  createdAt: '2026-09-01T00:00:00.000Z',
-  updatedAt: '2026-09-02T00:00:00.000Z',
-  wilayah: [
-    {
-      submissionAreaId: 'AREA-OLD',
-      provinsiName: 'ACEH',
-      areaName: 'Area 02',
-      supervisors: [
-        {
-          supervisorId: 'SPV-OLD',
-          namaSupervisor: 'Budi',
-          ktp: {
-            fileId: 'file_old_12345',
-            fileName: 'KTP_OLD.pdf',
-            fileUrl: 'https://drive.google.com/file/d/file_old_12345/view',
-          },
-        },
-        {
-          supervisorId: 'SPV-DELETED',
-          namaSupervisor: 'Deleted',
-          ktp: {
-            fileId: 'file_deleted_12345',
-            fileName: 'KTP_DELETED.pdf',
-            fileUrl: 'https://drive.google.com/file/d/file_deleted_12345/view',
-          },
-        },
-      ],
-    },
+  submissionId: 'SUP-EXISTING', submissionAreaId: 'AREA-OLD', namaDistributor: 'VENDOR A', ap: 'Supervisor AP1 SP',
+  createdAt: '2026-09-01 10:00:00', updatedAt: '2026-09-02 10:00:00',
+  supervisors: [
+    { supervisorId: 'SPV-BASE', idMdxl: '1453366', namaSupervisor: 'APRIFALDI' },
+    { supervisorId: 'SPV-DELETED', idMdxl: '', namaSupervisor: 'OLD', ktp: { fileId: 'file_old_12345', fileName: 'OLD.pdf', fileUrl: 'https://drive.google.com/old' } },
   ],
 }
 
-describe('Phase 4 transaction row generation', () => {
-  it('derives jumlah_supervisor and supervisor_no from array order', () => {
+describe('Phase 7 transaction generation', () => {
+  it('creates exactly one AP row and derives count/order', () => {
     const records = buildTransactionRecords(input())
-    expect(records.areas[0]?.jumlah_supervisor).toBe(2)
+    expect(records.areas).toHaveLength(1); expect(records.areas[0]).toMatchObject({ ap: 'Supervisor AP1 SP', jumlah_supervisor: 2 })
     expect(records.supervisors.map((row) => row.supervisor_no)).toEqual([1, 2])
-    expect(records.supervisors[0]).toMatchObject({
-      nama_distributor: 'DISTRIBUTOR KANONIK',
-      provinsi: 'ACEH',
-      area: 'Area 02',
-      nama_supervisor: 'Budi',
-      ktp_file_id: 'file_old_12345',
-      ktp_file_name: 'KTP_OLD.pdf',
-      ktp_file_url: 'https://drive.google.com/file/d/file_old_12345/view',
-    })
+    expect(records.supervisors[0]).toMatchObject({ nama_distributor: 'VENDOR A', ap: 'Supervisor AP1 SP', id_mdxl: '1453366', ktp_file_id: '' })
+    expect(records.supervisors[1]).toMatchObject({ id_mdxl: '', ktp_file_id: 'file_new_12345' })
   })
-
-  it('writes the correct reporting values for Supervisors in multiple Areas', () => {
-    const values = input()
-    values.wilayah.push({
-      province: { provinsiName: 'PAPUA' },
-      area: { areaName: 'Area 97' },
-      supervisors: [
-        {
-          namaSupervisor: 'Citra',
-          ktpSource: 'new',
-          ktp: {
-            fileId: 'file_papua_12345',
-            fileName: 'KTP_CITRA.pdf',
-            mimeType: 'application/pdf',
-            fileUrl: 'https://drive.google.com/file/d/file_papua_12345/view',
-          },
-        },
-      ],
-    })
-
-    const records = buildTransactionRecords(values)
-    expect(
-      records.supervisors.map((row) => ({
-        distributor: row.nama_distributor,
-        province: row.provinsi,
-        area: row.area,
-        supervisorNo: row.supervisor_no,
-      })),
-    ).toEqual([
-      {
-        distributor: 'DISTRIBUTOR KANONIK',
-        province: 'ACEH',
-        area: 'Area 02',
-        supervisorNo: 1,
-      },
-      {
-        distributor: 'DISTRIBUTOR KANONIK',
-        province: 'ACEH',
-        area: 'Area 02',
-        supervisorNo: 2,
-      },
-      {
-        distributor: 'DISTRIBUTOR KANONIK',
-        province: 'PAPUA',
-        area: 'Area 97',
-        supervisorNo: 1,
-      },
-    ])
+  it('uses WIB and preserves parent identity/created_at on edit', () => {
+    const edit = input(); edit.submissionAreaId = 'AREA-OLD'; edit.supervisors[0]!.supervisorId = 'SPV-BASE'
+    const records = buildTransactionRecords(edit, new Date('2026-09-17T03:36:55.376Z'), stored)
+    expect(records.submissionId).toBe('SUP-EXISTING'); expect(records.createdAt).toBe(stored.createdAt); expect(records.updatedAt).toBe('2026-09-17 10:36:55')
+    expect(records.areas[0]?.submission_area_id).toBe('AREA-OLD'); expect(records.supervisors[0]?.supervisor_id).toBe('SPV-BASE')
   })
-
-  it('does not write removed legacy columns', () => {
-    const records = buildTransactionRecords(input())
-    expect(records.submission).not.toHaveProperty('kode_distributor')
-    expect(records.areas[0]).not.toHaveProperty('provinsi_id')
-    expect(records.areas[0]).not.toHaveProperty('area_id')
-    expect(records.areas[0]).not.toHaveProperty('area_ap')
-  })
-
-  it('uses one WIB timestamp for created_at and updated_at on create', () => {
-    const records = buildTransactionRecords(
-      input(),
-      new Date('2026-09-17T03:36:55.376Z'),
-    )
-
-    expect(records.createdAt).toBe('2026-09-17 10:36:55')
-    expect(records.updatedAt).toBe(records.createdAt)
-    expect(records.submission.created_at).toBe(records.createdAt)
-    expect(records.submission.updated_at).toBe(records.updatedAt)
-  })
-
-  it('preserves parent ID, created_at, and valid child IDs during edit', () => {
-    const records = buildTransactionRecords(
-      input(),
-      new Date('2026-09-16T10:00:00.000Z'),
-      stored,
-    )
-    expect(records.submissionId).toBe('SUP-EXISTING')
-    expect(records.createdAt).toBe(stored.createdAt)
-    expect(records.updatedAt).toBe('2026-09-16 17:00:00')
-    expect(records.updatedAt).not.toBe(stored.updatedAt)
-    expect(records.submission.created_at).toBe(stored.createdAt)
-    expect(records.submission.updated_at).toBe(records.updatedAt)
-    expect(records.areas[0]?.submission_area_id).toBe('AREA-OLD')
-    expect(records.supervisors[0]?.supervisor_id).toBe('SPV-OLD')
-  })
-
-  it('rebuilds reporting values from the current validated Area on edit', () => {
-    const changed = input()
-    changed.distributor = {
-      namaDistributor: 'Distributor Kanonik',
-    }
-    changed.wilayah[0]!.province = { provinsiName: 'PAPUA' }
-    changed.wilayah[0]!.area = { areaName: 'Area 97' }
-
-    const records = buildTransactionRecords(changed, new Date(), stored)
-
-    expect(records.supervisors).toHaveLength(2)
-    expect(records.supervisors).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          nama_distributor: 'Distributor Kanonik',
-          provinsi: 'PAPUA',
-          area: 'Area 97',
-        }),
-      ]),
-    )
-    expect(
-      records.supervisors.every(
-        (row) =>
-          row.nama_distributor === 'Distributor Kanonik' &&
-          row.provinsi === 'PAPUA' &&
-          row.area === 'Area 97',
-      ),
-    ).toBe(true)
-  })
-
-  it('schedules deleted old KTPs only after the replacement state is built', () => {
+  it('schedules deleted custom KTP only, never baseline cleanup', () => {
     const records = buildTransactionRecords(input(), new Date(), stored)
-    expect(deriveOldFileIdsToCleanup(stored, records)).toEqual([
-      'file_deleted_12345',
-    ])
-  })
-
-  it('schedules the old KTP when a replacement file is persisted', () => {
-    const changed = input()
-    changed.wilayah[0]!.supervisors[0]!.ktp = {
-      fileId: 'file_replacement_12345',
-      fileName: 'KTP_REPLACEMENT.pdf',
-      mimeType: 'application/pdf',
-      fileUrl: 'https://drive.google.com/file/d/file_replacement_12345/view',
-    }
-    const records = buildTransactionRecords(changed, new Date(), stored)
-    expect(deriveOldFileIdsToCleanup(stored, records)).toContain(
-      'file_old_12345',
-    )
-    expect(deriveOldFileIdsToCleanup(stored, records)).not.toContain(
-      'file_replacement_12345',
-    )
+    expect(deriveOldFileIdsToCleanup(stored, records)).toEqual(['file_old_12345'])
   })
 })

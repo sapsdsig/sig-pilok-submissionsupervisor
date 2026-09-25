@@ -2,12 +2,13 @@ export type Distributor = {
   namaDistributor: string
 }
 
-export type ProvinceOption = {
-  provinsiName: string
+export type ApOption = {
+  ap: string
 }
 
-export type AreaOption = {
-  areaName: string
+export type SupervisorMasterRow = {
+  ap: string
+  vendorName: string
+  fullname: string
+  idMdxl: string
 }
-
-export type ProvinceAreaMasterRow = ProvinceOption & AreaOption

@@ -14,7 +14,7 @@ function invalidTarget(fieldPath: string) {
 
 describe('focusFirstInvalidField', () => {
   it('scrolls and focuses the first invalid control returned in DOM order', () => {
-    const target = invalidTarget('wilayah.0.supervisors.1.namaSupervisor')
+    const target = invalidTarget('supervisors.1.namaSupervisor')
     const root = {
       querySelector: vi.fn(() => target),
     } as unknown as ParentNode
@@ -23,7 +23,7 @@ describe('focusFirstInvalidField', () => {
 
     expect(root.querySelector).toHaveBeenCalledWith(INVALID_FIELD_SELECTOR)
     expect(result?.dataset.fieldPath).toBe(
-      'wilayah.0.supervisors.1.namaSupervisor',
+      'supervisors.1.namaSupervisor',
     )
     expect(target.scrollIntoView).toHaveBeenCalledWith({
       behavior: 'smooth',
