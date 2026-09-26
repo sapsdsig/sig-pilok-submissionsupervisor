@@ -37,7 +37,7 @@ export function SupervisorFields(props: Props) {
           </h4>
           {baseline && (
             <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600">
-              Data Q2 2026
+              Data HY 2026
             </span>
           )}
         </div>

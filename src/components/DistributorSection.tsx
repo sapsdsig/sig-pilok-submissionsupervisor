@@ -23,7 +23,7 @@ export function DistributorSection(props: Props) {
   const ap = useController({ control, name: 'ap' })
   return (
     <SectionCard>
-      <SectionHeader step={1} title='Informasi Distributor' description='Pilih Distributor dan AP yang terdaftar pada master Q2 2026.' />
+      <SectionHeader step={1} title='Informasi Distributor' description='Pilih Distributor dan AP yang terdaftar pada master HY 2026.' />
       <div className='mt-6 grid min-w-0 grid-cols-1 gap-5 md:grid-cols-2'>
         <div className='min-w-0'>
           <label className='field-label' htmlFor='nama-distributor'>Distributor *</label>
@@ -46,7 +46,7 @@ export function DistributorSection(props: Props) {
       </div>
       <div className='mt-3 space-y-2'>
         {props.lookupStatus === 'loading' && <StatusBanner variant='info' compact>Memeriksa data Distributor + AP...</StatusBanner>}
-        {props.lookupStatus === 'create' && <StatusBanner variant='success' compact>Baseline Q2 2026 siap diperbarui.</StatusBanner>}
+        {props.lookupStatus === 'create' && <StatusBanner variant='success' compact>Baseline HY 2026 siap diperbarui.</StatusBanner>}
         {props.lookupStatus === 'edit' && <StatusBanner variant='info' compact>Data tersimpan ditemukan · Mode Edit.</StatusBanner>}
         {props.loadError && <StatusBanner variant='error' compact action={<button type='button' className='button-text' onClick={props.onRetry}>Coba lagi</button>}>{props.loadError}</StatusBanner>}
       </div>
