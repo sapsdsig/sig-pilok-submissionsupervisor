@@ -413,7 +413,7 @@ function App() {
                 <SectionHeader
                   step={2}
                   title="Supervisor"
-                  description="Data yang ditampilkan pada menu ini merupakan hasil pengisian data pada periode Q1 2026."
+                  description="Data yang ditampilkan pada menu ini merupakan hasil pengisian data pada periode Q2 2026."
                 />
                 <div className="mt-6">
                   <WilayahCard />

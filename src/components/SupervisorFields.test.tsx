@@ -15,7 +15,7 @@ function Harness({ baseline = false }: { baseline?: boolean }) {
 describe('SupervisorFields Phase 7', () => {
   it('shows baseline as readonly without exposing ID or KTP controls', () => {
     const html = renderToString(<Harness baseline />)
-    expect(html).toContain('Data Q1 2026'); expect(html).toContain('readOnly'); expect(html).not.toContain('1453366'); expect(html).not.toContain('Pilih file KTP')
+    expect(html).toContain('Data Q2 2026'); expect(html).toContain('readOnly'); expect(html).not.toContain('1453366'); expect(html).not.toContain('Pilih file KTP')
   })
   it('shows only private replacement state for saved custom KTP', () => {
     const html = renderToString(<Harness />)

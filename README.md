@@ -10,10 +10,10 @@ Satu form hanya menangani satu AP. Distributor yang memiliki dua AP harus disimp
 
 ## Arsitektur data Phase 7
 
-`master_supervisor` adalah referensi immutable baseline Q1 2026. Form publik hanya membacanya dan tidak pernah mengubah atau menghapus baris master.
+`master_supervisor` adalah referensi immutable baseline Q2 2026. Form publik hanya membacanya dan tidak pernah mengubah atau menghapus baris master.
 
 ```text
-master_supervisor (immutable Q1 2026 reference)
+master_supervisor (immutable Q2 2026 reference)
         |
         +--> pilihan Distributor dari Vendor Name
         +--> pilihan AP per Distributor
@@ -43,7 +43,7 @@ Semua kredensial dan resource ID bersifat server-side. Jangan memakai prefix `VI
 | `GOOGLE_CLIENT_ID` | OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | OAuth client secret |
 | `GOOGLE_REFRESH_TOKEN` | Offline refresh token |
-| `GOOGLE_MASTER_SUPERVISOR_SPREADSHEET_ID` | Spreadsheet master Q1 2026 |
+| `GOOGLE_MASTER_SUPERVISOR_SPREADSHEET_ID` | Spreadsheet master Q2 2026 |
 | `GOOGLE_SUBMISSION_SPREADSHEET_ID` | Spreadsheet transaksi |
 | `GOOGLE_DRIVE_KTP_FOLDER_ID` | Folder upload KTP |
 | `APP_ORIGIN` | Origin produksi yang diizinkan |

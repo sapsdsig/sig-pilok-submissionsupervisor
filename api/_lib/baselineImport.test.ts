@@ -10,7 +10,7 @@ const master: SupervisorMasterRow[] = [
 ]
 const table = (rows: SheetTable['rows'] = []): SheetTable => ({ headers: [], rows })
 
-describe('Q1 baseline import', () => {
+describe('Q2 baseline import', () => {
   it('maps master identity with blank transaction and KTP fields', () => {
     expect(mapMasterToBaseline(master[0]!)).toEqual({
       supervisor_id: '', submission_id: '', submission_area_id: '', nama_distributor: 'VENDOR A', ap: 'AP1', id_mdxl: '1001', supervisor_no: '', nama_supervisor: 'ANI', ktp_file_id: '', ktp_file_name: '', ktp_file_url: '',
